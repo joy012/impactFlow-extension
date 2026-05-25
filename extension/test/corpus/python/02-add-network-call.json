@@ -1,0 +1,8 @@
+{
+  "language": "python",
+  "title": "Function gains a requests.get call",
+  "before": "def get_data():\n    return CACHE['data']\n",
+  "after": "def get_data():\n    return requests.get('https://api.example.com/data').json()\n",
+  "expectedDiffs": ["side_effect_surface", "call_set", "return_shape"],
+  "shouldNotEmit": []
+}

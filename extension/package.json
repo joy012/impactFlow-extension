@@ -1,0 +1,241 @@
+{
+  "name": "extension",
+  "displayName": "ImpactFlow",
+  "description": "Behavioral change intelligence for AI-assisted development.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "joy012",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=22"
+  },
+  "categories": ["Programming Languages", "Linters", "Other"],
+  "keywords": [
+    "impact analysis",
+    "ai code review",
+    "behavior diff",
+    "typescript",
+    "cursor",
+    "copilot"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "impactflow",
+          "title": "ImpactFlow",
+          "icon": "media/activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "impactflow": [
+        {
+          "type": "webview",
+          "id": "impactflow.sidePanel",
+          "name": "Impact",
+          "icon": "media/activitybar.svg",
+          "contextualTitle": "ImpactFlow"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "impactflow.analyzeNow",
+        "title": "Analyze Changes Now",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.summarizeStaged",
+        "title": "Summarize Staged Changes",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.sendFeedback",
+        "title": "Send Feedback",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.reportBug",
+        "title": "Report a Bug",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.requestFeature",
+        "title": "Request a Feature",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.showPerf",
+        "title": "Show Performance Diagnostics",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.resetBaseline",
+        "title": "Reset Baseline",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.findDeadCode",
+        "title": "Find Dead Code",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.refreshCoverage",
+        "title": "Refresh Coverage",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.compareBranches",
+        "title": "Compare Branches",
+        "category": "ImpactFlow"
+      }
+    ],
+    "configuration": {
+      "title": "ImpactFlow",
+      "properties": {
+        "impactflow.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable ImpactFlow analysis."
+        },
+        "impactflow.languages": {
+          "type": "array",
+          "default": [
+            "typescript",
+            "typescriptreact",
+            "javascript",
+            "javascriptreact",
+            "python",
+            "go",
+            "dart",
+            "java",
+            "kotlin"
+          ],
+          "description": "Language IDs ImpactFlow analyzes."
+        },
+        "impactflow.include": {
+          "type": "array",
+          "default": ["**/*.{ts,tsx,js,jsx,mjs,cjs,py,pyi,go,dart,java,kt,kts}"],
+          "description": "Glob patterns of files to include."
+        },
+        "impactflow.exclude": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/out/**",
+            "**/*.test.ts",
+            "**/*.spec.ts"
+          ],
+          "description": "Glob patterns of files to exclude."
+        },
+        "impactflow.baseline.inline": {
+          "type": "string",
+          "enum": ["head", "lastSave"],
+          "default": "head",
+          "description": "Baseline used for inline / side panel diffs."
+        },
+        "impactflow.baseline.commit": {
+          "type": "string",
+          "enum": ["branchBase", "head"],
+          "default": "branchBase",
+          "description": "Baseline used for commit-time summaries."
+        },
+        "impactflow.severity.show": {
+          "type": "string",
+          "enum": ["all", "low", "medium", "high"],
+          "default": "medium",
+          "description": "Minimum severity to surface in the side panel."
+        },
+        "impactflow.decorations.inline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline gutter decorations on changed functions."
+        },
+        "impactflow.telemetry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Send anonymous usage counts (no source code, no paths). Opt-in only."
+        },
+        "impactflow.feedback.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow sending feedback / bug reports from the side panel."
+        },
+        "impactflow.feedback.endpoint": {
+          "type": "string",
+          "default": "https://api.web3forms.com/submit",
+          "description": "HTTPS endpoint that receives feedback submissions."
+        },
+        "impactflow.feedback.includeEnv": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include OS / VS Code version / extension version in submissions."
+        },
+        "impactflow.feedback.githubIssuesUrl": {
+          "type": "string",
+          "default": "https://github.com/joy012/impactflow/issues/new",
+          "description": "Fallback URL when the feedback endpoint is unreachable."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "impactflow.getStarted",
+        "title": "Get Started with ImpactFlow",
+        "description": "Understand what behavior changed in your system after every code modification.",
+        "steps": [
+          {
+            "id": "intro",
+            "title": "What ImpactFlow does",
+            "description": "ImpactFlow analyzes **behavioral changes** — not just file structure — and surfaces what other modules in your system might be affected.\n\nOpen the side panel from the activity bar to see live impact analysis.",
+            "media": { "markdown": "media/walkthrough/intro.md" }
+          },
+          {
+            "id": "tryIt",
+            "title": "Try it on your code",
+            "description": "Edit any function in a TypeScript file. ImpactFlow will list the change in the side panel and rank possibly-affected modules.",
+            "media": { "markdown": "media/walkthrough/try-it.md" }
+          },
+          {
+            "id": "feedback",
+            "title": "Tell us what you think",
+            "description": "ImpactFlow is in beta. Send feedback, file bugs, or request features directly from the side panel.\n\n[Send feedback](command:impactflow.sendFeedback)",
+            "media": { "markdown": "media/walkthrough/feedback.md" }
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "pnpm run build:webview && pnpm run build:host",
+    "build:host": "node esbuild.config.mjs --production",
+    "build:webview": "pnpm --filter webview build && node scripts/copy-webview.mjs",
+    "dev": "pnpm run build:webview && node esbuild.config.mjs --watch",
+    "watch": "node esbuild.config.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:integration": "vscode-test",
+    "bench": "node scripts/bench.mjs",
+    "package": "pnpm run build && vsce package --no-dependencies",
+    "clean": "rm -rf dist out"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "simple-git": "^3.27.0",
+    "ts-morph": "^24.0.0"
+  }
+}

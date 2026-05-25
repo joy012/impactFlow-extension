@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "title": "Function becomes async",
+  "before": "function fetchUser(id: string) { return db.get(id); }",
+  "after": "async function fetchUser(id: string) { return await db.get(id); }",
+  "expectedDiffs": ["asyncness"],
+  "shouldNotEmit": []
+}

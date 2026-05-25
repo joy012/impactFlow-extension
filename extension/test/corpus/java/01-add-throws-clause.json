@@ -1,0 +1,8 @@
+{
+  "language": "java",
+  "title": "Java method gains a throws clause",
+  "before": "public class A {\n  public int parse(String s) { return Integer.parseInt(s); }\n}",
+  "after": "public class A {\n  public int parse(String s) throws NumberFormatException { return Integer.parseInt(s); }\n}",
+  "expectedDiffs": ["throw_set"],
+  "shouldNotEmit": []
+}

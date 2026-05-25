@@ -1,0 +1,16 @@
+node_modules
+dist
+out
+.vscode-test
+*.vsix
+.DS_Store
+.env
+.env.local
+coverage
+*.log
+.cache
+.turbo
+.parcel-cache
+.docs
+.omc
+.claude

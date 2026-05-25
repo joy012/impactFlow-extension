@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "title": "Function gains a second parameter",
+  "before": "function add(a: number) { return a; }",
+  "after": "function add(a: number, b: number) { return a + b; }",
+  "expectedDiffs": ["signature", "return_shape"],
+  "shouldNotEmit": []
+}

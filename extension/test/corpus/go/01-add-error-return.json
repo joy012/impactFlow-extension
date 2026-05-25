@@ -1,0 +1,8 @@
+{
+  "language": "go",
+  "title": "Go function signature gains an error return",
+  "before": "func parse(s string) int { n, _ := strconv.Atoi(s); return n }",
+  "after": "func parse(s string) (int, error) { return strconv.Atoi(s) }",
+  "expectedDiffs": ["signature", "return_shape"],
+  "shouldNotEmit": []
+}

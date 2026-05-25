@@ -1,0 +1,8 @@
+{
+  "language": "python",
+  "title": "Python function becomes async",
+  "before": "def fetch(id):\n    return db.get(id)\n",
+  "after": "async def fetch(id):\n    return await db.get(id)\n",
+  "expectedDiffs": ["asyncness"],
+  "shouldNotEmit": []
+}

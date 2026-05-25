@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "title": "Whitespace-only formatting change must produce zero diffs",
+  "before": "function f(x: number) { return x*x; }",
+  "after": "function f(x: number) {\n  return x * x;\n}",
+  "expectedDiffs": [],
+  "shouldNotEmit": ["signature", "return_shape", "call_set", "branch_logic"]
+}

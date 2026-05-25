@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Map VS Code theme variables into Tailwind tokens so the panel
+   automatically follows the user's theme (light / dark / high-contrast). */
+@theme {
+  --color-bg: var(--vscode-editor-background);
+  --color-fg: var(--vscode-foreground);
+  --color-surface: var(--vscode-sideBar-background);
+  --color-border: var(--vscode-panel-border, var(--vscode-contrastBorder, rgba(127, 127, 127, 0.2)));
+  --color-muted: var(--vscode-descriptionForeground);
+  --color-input-bg: var(--vscode-input-background);
+  --color-input-fg: var(--vscode-input-foreground);
+  --color-input-border: var(--vscode-input-border, transparent);
+  --color-accent: var(--vscode-button-background);
+  --color-accent-fg: var(--vscode-button-foreground);
+  --color-accent-hover: var(--vscode-button-hoverBackground);
+  --color-danger: var(--vscode-errorForeground);
+  --color-warn: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+  --color-ok: var(--vscode-testing-iconPassed, var(--vscode-foreground));
+  --color-link: var(--vscode-textLink-foreground);
+
+  --font-sans: var(--vscode-font-family);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  margin: 0;
+}
+
+/* Inputs follow the VS Code input style. */
+input,
+textarea,
+select {
+  background: var(--color-input-bg);
+  color: var(--color-input-fg);
+  border: 1px solid var(--color-input-border);
+  border-radius: 2px;
+  padding: 0.375rem 0.5rem;
+  font: inherit;
+  outline: none;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}

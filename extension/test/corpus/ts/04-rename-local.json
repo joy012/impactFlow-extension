@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "title": "Pure local-variable rename must produce zero diffs",
+  "before": "function f(a: number) { const x = a + 1; return x; }",
+  "after": "function f(a: number) { const renamed = a + 1; return renamed; }",
+  "expectedDiffs": [],
+  "shouldNotEmit": ["signature", "return_shape", "call_set"]
+}

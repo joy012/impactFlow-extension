@@ -1,0 +1,28 @@
+{
+  "name": "impactflow",
+  "private": true,
+  "version": "0.0.1",
+  "description": "ImpactFlow — behavioral change intelligence for AI-assisted development. VS Code / Cursor extension.",
+  "license": "MIT",
+  "author": "joy012",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --parallel -r dev",
+    "watch": "pnpm --parallel -r watch",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "pnpm -r test",
+    "package": "pnpm --filter extension package",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.7.2"
+  }
+}

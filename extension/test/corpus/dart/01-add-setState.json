@@ -1,0 +1,8 @@
+{
+  "language": "dart",
+  "title": "Flutter handler gains a setState — rebuild-triggering",
+  "before": "void onTap() { print('tapped'); }",
+  "after": "void onTap() { setState(() { counter++; }); print('tapped'); }",
+  "expectedDiffs": ["side_effect_surface", "call_set"],
+  "shouldNotEmit": []
+}
