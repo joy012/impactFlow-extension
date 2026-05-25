@@ -1,16 +1,15 @@
-/**
- * Single source of truth for "is this workspace a git repo?"
- * Cached per-session; recomputed on workspace change.
- */
-
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-let cached: { root: string; isGit: boolean } | undefined;
+// Cache the .git lookup but invalidate after a short TTL so `git init` mid-session is picked up.
+const TTL_MS = 60_000;
+let cached: { root: string; isGit: boolean; at: number } | undefined;
 
-export function isGitRepo(workspaceRoot: string | undefined): boolean {
+export const isGitRepo = (workspaceRoot: string | undefined): boolean => {
   if (!workspaceRoot) return false;
-  if (cached?.root === workspaceRoot) return cached.isGit;
+  if (cached?.root === workspaceRoot && Date.now() - cached.at < TTL_MS) {
+    return cached.isGit;
+  }
   let isGit = false;
   try {
     const dotgit = join(workspaceRoot, '.git');
@@ -22,10 +21,10 @@ export function isGitRepo(workspaceRoot: string | undefined): boolean {
   } catch {
     isGit = false;
   }
-  cached = { root: workspaceRoot, isGit };
+  cached = { root: workspaceRoot, isGit, at: Date.now() };
   return isGit;
-}
+};
 
-export function clearGitDetectCache(): void {
+export const clearGitDetectCache = (): void => {
   cached = undefined;
-}
+};

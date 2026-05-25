@@ -1,17 +1,14 @@
-/**
- * F16 — Focus mode.
- * Toggleable command that dims lines OUTSIDE of currently-modified functions
- * in every visible editor. Cleared on second toggle.
- */
-
 import * as vscode from 'vscode';
 import type { AnalysisSnapshot } from './shared/messages.js';
+
+const CONTEXT_LINES = 10;
 
 let dimType: vscode.TextEditorDecorationType | undefined;
 let active = false;
 let lastSnapshot: AnalysisSnapshot | undefined;
+let editorChangeSub: vscode.Disposable | undefined;
 
-function ensureDecoration(): vscode.TextEditorDecorationType {
+const ensureDecoration = (): vscode.TextEditorDecorationType => {
   if (!dimType) {
     dimType = vscode.window.createTextEditorDecorationType({
       opacity: '0.35',
@@ -19,41 +16,43 @@ function ensureDecoration(): vscode.TextEditorDecorationType {
     });
   }
   return dimType;
-}
+};
 
-export function setSnapshotForFocus(snap: AnalysisSnapshot): void {
+export const setSnapshotForFocus = (snap: AnalysisSnapshot): void => {
   lastSnapshot = snap;
   if (active) refreshAll();
-}
+};
 
-export async function toggleFocusMode(): Promise<void> {
+export const toggleFocusMode = async (): Promise<void> => {
   active = !active;
   if (!active) {
     clearAll();
+    editorChangeSub?.dispose();
+    editorChangeSub = undefined;
     vscode.window.setStatusBarMessage('ImpactFlow: focus mode off.', 1500);
     return;
   }
+  // B5 — dim newly-opened editors immediately, not on next snapshot.
+  editorChangeSub = vscode.window.onDidChangeVisibleTextEditors(() => refreshAll());
   refreshAll();
   vscode.window.setStatusBarMessage('ImpactFlow: focus mode on — unrelated lines dimmed.', 2500);
-}
+};
 
-function refreshAll(): void {
+const refreshAll = (): void => {
   for (const editor of vscode.window.visibleTextEditors) refreshEditor(editor);
-}
+};
 
-function refreshEditor(editor: vscode.TextEditor): void {
+const refreshEditor = (editor: vscode.TextEditor): void => {
   const deco = ensureDecoration();
   const file = lastSnapshot?.files.find((f) => f.path === editor.document.uri.fsPath);
   if (!file) {
     editor.setDecorations(deco, []);
     return;
   }
-  // Build the set of "interesting" 1-based line ranges from modified + added fns.
   const interesting = new Set<number>();
   for (const fn of [...file.modified, ...file.added]) {
     interesting.add(fn.line);
-    // Also keep the surrounding ±10 lines un-dimmed so context is visible.
-    for (let k = 1; k <= 10; k++) {
+    for (let k = 1; k <= CONTEXT_LINES; k++) {
       interesting.add(fn.line - k);
       interesting.add(fn.line + k);
     }
@@ -64,15 +63,17 @@ function refreshEditor(editor: vscode.TextEditor): void {
     dimRanges.push(editor.document.lineAt(i).range);
   }
   editor.setDecorations(deco, dimRanges);
-}
+};
 
-function clearAll(): void {
+const clearAll = (): void => {
   if (!dimType) return;
   for (const editor of vscode.window.visibleTextEditors) editor.setDecorations(dimType, []);
-}
+};
 
-export function disposeFocusMode(): void {
+export const disposeFocusMode = (): void => {
   dimType?.dispose();
   dimType = undefined;
+  editorChangeSub?.dispose();
+  editorChangeSub = undefined;
   active = false;
-}
+};

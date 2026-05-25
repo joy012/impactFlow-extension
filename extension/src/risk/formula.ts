@@ -1,17 +1,3 @@
-/**
- * Composite risk score. docs/DONE.md
- *
- *   risk = clamp(
- *       severityWeight(topSeverity)
- *     + 2 * (isPublicSurface ? 1 : 0)
- *     + 1 * log2(1 + impactedCount)
- *     + 1 * (crossesPackageBoundary ? 1 : 0)
- *     + 1 * (touchesAsyncBoundary ? 1 : 0)
- *   , 0, 10)
- *
- *   bucket: 0–1 SAFE · 2–3 LOW · 4–6 MEDIUM · 7–10 HIGH
- */
-
 import type { Severity } from '../behavior-diff/index.js';
 
 export interface RiskInputs {
@@ -28,7 +14,7 @@ export interface RiskOutput {
   explanation: string[];
 }
 
-export function severityWeight(s: Severity): number {
+export const severityWeight = (s: Severity): number => {
   switch (s) {
     case 'safe':
       return 0;
@@ -39,16 +25,16 @@ export function severityWeight(s: Severity): number {
     case 'high':
       return 4;
   }
-}
+};
 
-export function bucket(score: number): Severity {
+export const bucket = (score: number): Severity => {
   if (score <= 1) return 'safe';
   if (score <= 3) return 'low';
   if (score <= 6) return 'medium';
   return 'high';
-}
+};
 
-export function computeRisk(i: RiskInputs): RiskOutput {
+export const computeRisk = (i: RiskInputs): RiskOutput => {
   const expl: string[] = [];
   let score = severityWeight(i.topSeverity);
   if (score > 0) expl.push(`${i.topSeverity} change (+${severityWeight(i.topSeverity)})`);
@@ -74,4 +60,4 @@ export function computeRisk(i: RiskInputs): RiskOutput {
   }
   score = Math.max(0, Math.min(10, score));
   return { score, level: bucket(score), explanation: expl };
-}
+};

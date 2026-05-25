@@ -61,7 +61,7 @@ func Add(a, b int) int { return a + b }`,
 
 describe('Go — extractGoFacts', () => {
   it('detects goroutine launches as async-ish', () => {
-    const facts = extractGoFacts(`func main() { go process() }`);
+    const facts = extractGoFacts('func main() { go process() }');
     expect(facts.isAsync).toBe(true);
   });
 
@@ -139,7 +139,7 @@ void helper() {
 describe('Dart — extractDartFacts', () => {
   it('detects async + Future return type', () => {
     const facts = extractDartFacts(
-      `Future<User> fetchUser(String uid) async { return await db.get(uid); }`,
+      'Future<User> fetchUser(String uid) async { return await db.get(uid); }',
     );
     expect(facts.isAsync).toBe(true);
     expect(facts.returnType).toContain('Future<User>');

@@ -1,12 +1,8 @@
-/**
- * Local store for "Not useful" dismissals.
- * Persists per workspace via workspaceState.
- */
-
 import type * as vscode from 'vscode';
 import { logger } from '../logger.js';
 
 const KEY = 'impactflow.dismissedFindings';
+const MAX_DISMISSALS = 200;
 
 interface DismissalRecord {
   fnId: string;
@@ -29,13 +25,16 @@ export class FeedbackStore {
     const cur = this.list();
     if (cur.some((r) => r.fnId === fnId)) return;
     cur.push({ fnId, reason, at: Date.now() });
-    // Cap to last 200 dismissals to keep state small.
-    const trimmed = cur.slice(-200);
-    await this.context.workspaceState.update(KEY, trimmed);
+    await this.context.workspaceState.update(KEY, cur.slice(-MAX_DISMISSALS));
     logger.info(`Dismissed finding: ${fnId}${reason ? ` (${reason})` : ''}`);
   }
 
   async clear(): Promise<void> {
     await this.context.workspaceState.update(KEY, []);
+  }
+
+  // G10 — Reset Dismissals command needs a synchronous clear that fires-and-forgets.
+  clearDismissals(): void {
+    void this.context.workspaceState.update(KEY, []);
   }
 }

@@ -1,7 +1,3 @@
-/**
- * Document watcher — debounces edits and fires the pipeline.
- */
-
 import * as vscode from 'vscode';
 import { logger } from '../logger.js';
 
@@ -43,7 +39,6 @@ export class DocumentWatcher implements vscode.Disposable {
     logger.info(`Watcher started (debounce=${this.debounceMs}ms).`);
   }
 
-  /** Manual trigger from the "Analyze Now" command. */
   trigger(filePath: string): void {
     this.schedule(filePath, 'manual', 0);
   }
@@ -64,7 +59,7 @@ export class DocumentWatcher implements vscode.Disposable {
 
   private async fire(n: ChangeNotification): Promise<void> {
     if (this.inflight.has(n.filePath)) {
-      // Re-coalesce: schedule another pass after the current one finishes.
+      // Coalesce: re-schedule another pass after the in-flight one completes.
       this.schedule(n.filePath, n.reason);
       return;
     }
@@ -84,8 +79,6 @@ export class DocumentWatcher implements vscode.Disposable {
     const langs = cfg.get<string[]>('languages', []) ?? [];
     return langs.includes(doc.languageId);
   }
-  // Note: a file is also considered "watched" if its extension matches a known
-  // language via parsers/router#languageFor — wiring lives in pipeline.ts.
 
   dispose(): void {
     for (const t of this.timers.values()) clearTimeout(t);

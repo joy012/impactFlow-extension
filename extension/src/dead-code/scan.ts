@@ -1,11 +1,3 @@
-/**
- * F9 / E1a — Dead-code finder (read-only report).
- * Walks workspace symbols via the language server and reports zero-caller exports.
- *
- * Safety: this build only REPORTS dead code. Automated removal (E1b) is gated on
- * the safety rules in docs/ROADMAP.md §E1 and is implemented in a later phase.
- */
-
 import * as vscode from 'vscode';
 import { logger } from '../logger.js';
 import { languageFor } from '../parsers/router.js';
@@ -15,7 +7,6 @@ export interface DeadCodeFinding {
   symbol: string;
   line: number;
   kind: string;
-  /** True if user-confirmed-safe via E1 safety rules (always false in v1 read-only). */
   safeToRemove: boolean;
   reason: string;
 }
@@ -25,7 +16,6 @@ export interface DeadCodeReport {
   durationMs: number;
   scanned: number;
   findings: DeadCodeFinding[];
-  /** Files we couldn't reliably scan (no LSP, parse failed, etc.). */
   skipped: Array<{ filePath: string; reason: string }>;
 }
 
@@ -33,8 +23,23 @@ const TEST_PATH_RE =
   /\.(test|spec)\.[cm]?[jt]sx?$|[\\/](__tests__|tests?|spec|e2e)[\\/]|\/_test\.go$|\/test_[^/]+\.py$|\/[^/]+_test\.py$/;
 
 const TIMEOUT_MS = 60_000;
+// G2 — per-file budget so a slow LSP can't starve the rest of the scan.
+const PER_FILE_TIMEOUT_MS = 5_000;
 
-export async function scanDeadCode(token?: vscode.CancellationToken): Promise<DeadCodeReport> {
+const INCLUDE_GLOB = `{${[
+  '**/*.ts',
+  '**/*.tsx',
+  '**/*.js',
+  '**/*.jsx',
+  '**/*.mjs',
+  '**/*.cjs',
+  '**/*.py',
+  '**/*.go',
+  '**/*.dart',
+].join(',')}}`;
+const EXCLUDE_GLOB = '{**/node_modules/**,**/dist/**,**/out/**,**/build/**,**/.git/**}';
+
+export const scanDeadCode = async (token?: vscode.CancellationToken): Promise<DeadCodeReport> => {
   const t0 = Date.now();
   const findings: DeadCodeFinding[] = [];
   const skipped: DeadCodeReport['skipped'] = [];
@@ -43,33 +48,15 @@ export async function scanDeadCode(token?: vscode.CancellationToken): Promise<De
     return { generatedAt: Date.now(), durationMs: 0, scanned: 0, findings, skipped };
   }
 
-  const includeGlob = `{${[
-    '**/*.ts',
-    '**/*.tsx',
-    '**/*.js',
-    '**/*.jsx',
-    '**/*.mjs',
-    '**/*.cjs',
-    '**/*.py',
-    '**/*.go',
-    '**/*.dart',
-  ].join(',')}}`;
-  const excludeGlob = '{**/node_modules/**,**/dist/**,**/out/**,**/build/**,**/.git/**}';
-
-  const allFiles = await vscode.workspace.findFiles(includeGlob, excludeGlob, 2000);
+  const allFiles = await vscode.workspace.findFiles(INCLUDE_GLOB, EXCLUDE_GLOB, 2000);
   const sourceFiles = allFiles.filter((f) => !TEST_PATH_RE.test(f.fsPath));
   let scanned = 0;
-
-  // Hard timeout — we never block the user for more than 60 s.
   const deadline = Date.now() + TIMEOUT_MS;
 
   for (const uri of sourceFiles) {
     if (token?.isCancellationRequested) break;
     if (Date.now() > deadline) {
-      skipped.push({
-        filePath: '<scan>',
-        reason: 'timeout — increase impactflow.cleanup.timeoutSec',
-      });
+      skipped.push({ filePath: '<scan>', reason: 'timeout — workspace too large for one pass' });
       break;
     }
     if (!languageFor(uri.fsPath)) {
@@ -78,29 +65,30 @@ export async function scanDeadCode(token?: vscode.CancellationToken): Promise<De
     }
     scanned++;
 
-    let symbols: vscode.DocumentSymbol[] | undefined;
-    try {
-      symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-        'vscode.executeDocumentSymbolProvider',
-        uri,
-      );
-    } catch (err) {
-      skipped.push({
-        filePath: uri.fsPath,
-        reason: `symbol query failed: ${(err as Error).message}`,
-      });
+    const symbols = await withTimeout(
+      () =>
+        vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+          'vscode.executeDocumentSymbolProvider',
+          uri,
+        ),
+      PER_FILE_TIMEOUT_MS,
+    );
+    if (!symbols) {
+      skipped.push({ filePath: uri.fsPath, reason: 'symbol query timed out or failed' });
       continue;
     }
-    if (!symbols || symbols.length === 0) {
+    if (symbols.length === 0) {
       skipped.push({ filePath: uri.fsPath, reason: 'no symbols returned by language server' });
       continue;
     }
 
-    const candidates = collectCandidates(symbols);
-    for (const sym of candidates) {
+    for (const sym of collectCandidates(symbols)) {
       if (token?.isCancellationRequested) break;
-      const refs = await safeRefs(uri, sym.selectionRange.start);
-      // Filter out references in the declaration file itself + test files.
+      const refs = await withTimeout(
+        () => safeRefs(uri, sym.selectionRange.start),
+        PER_FILE_TIMEOUT_MS,
+      );
+      if (!refs) continue;
       const externalRefs = refs.filter(
         (r) =>
           !(r.uri.fsPath === uri.fsPath && r.range.start.line === sym.selectionRange.start.line) &&
@@ -119,17 +107,10 @@ export async function scanDeadCode(token?: vscode.CancellationToken): Promise<De
     }
   }
 
-  return {
-    generatedAt: Date.now(),
-    durationMs: Date.now() - t0,
-    scanned,
-    findings,
-    skipped,
-  };
-}
+  return { generatedAt: Date.now(), durationMs: Date.now() - t0, scanned, findings, skipped };
+};
 
-/** Flatten nested DocumentSymbols, keeping only function-like exports. */
-function collectCandidates(symbols: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] {
+const collectCandidates = (symbols: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] => {
   const out: vscode.DocumentSymbol[] = [];
   const stack = [...symbols];
   while (stack.length > 0) {
@@ -138,14 +119,13 @@ function collectCandidates(symbols: vscode.DocumentSymbol[]): vscode.DocumentSym
       s.kind === vscode.SymbolKind.Function ||
       s.kind === vscode.SymbolKind.Method ||
       s.kind === vscode.SymbolKind.Constructor;
-    // Heuristic: ignore underscore-prefixed (private convention)
     if (fnish && !s.name.startsWith('_')) out.push(s);
     if (s.children?.length) stack.push(...s.children);
   }
   return out;
-}
+};
 
-async function safeRefs(uri: vscode.Uri, pos: vscode.Position): Promise<vscode.Location[]> {
+const safeRefs = async (uri: vscode.Uri, pos: vscode.Position): Promise<vscode.Location[]> => {
   try {
     const r = await vscode.commands.executeCommand<vscode.Location[]>(
       'vscode.executeReferenceProvider',
@@ -157,4 +137,23 @@ async function safeRefs(uri: vscode.Uri, pos: vscode.Position): Promise<vscode.L
     logger.debug(`reference query failed: ${(err as Error).message}`);
     return [];
   }
-}
+};
+
+const withTimeout = async <T>(
+  fn: () => Thenable<T> | Promise<T>,
+  ms: number,
+): Promise<T | null> => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race<T | null>([
+      Promise.resolve(fn()),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};

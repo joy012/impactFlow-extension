@@ -1,10 +1,12 @@
-/**
- * Inline gutter decorations for changed functions.
- * Phase 5.
- */
-
 import * as vscode from 'vscode';
 import type { AnalysisSnapshot, FnSummary, Severity } from '../shared/messages.js';
+
+const COLORS = {
+  high: '#e25555',
+  medium: '#e2a23b',
+  low: '#7aa2f7',
+  added: '#3cb371',
+} as const;
 
 export class InlineDecorations implements vscode.Disposable {
   private readonly high: vscode.TextEditorDecorationType;
@@ -14,17 +16,10 @@ export class InlineDecorations implements vscode.Disposable {
   private disposed = false;
 
   constructor(_context: vscode.ExtensionContext) {
-    const make = (color: string) =>
-      vscode.window.createTextEditorDecorationType({
-        gutterIconPath: vscode.Uri.parse(makeSvgDataUri(color)),
-        gutterIconSize: 'contain',
-        overviewRulerColor: color,
-        overviewRulerLane: vscode.OverviewRulerLane.Right,
-      });
-    this.high = make('#e25555');
-    this.medium = make('#e2a23b');
-    this.low = make('#7aa2f7');
-    this.addedType = make('#3cb371');
+    this.high = makeDecoration(COLORS.high);
+    this.medium = makeDecoration(COLORS.medium);
+    this.low = makeDecoration(COLORS.low);
+    this.addedType = makeDecoration(COLORS.added);
   }
 
   apply(snapshot: AnalysisSnapshot): void {
@@ -34,8 +29,7 @@ export class InlineDecorations implements vscode.Disposable {
       return;
     }
     for (const editor of vscode.window.visibleTextEditors) {
-      const filePath = editor.document.uri.fsPath;
-      const file = snapshot.files.find((f) => f.path === filePath);
+      const file = snapshot.files.find((f) => f.path === editor.document.uri.fsPath);
       if (!file) {
         this.clearEditor(editor);
         continue;
@@ -48,10 +42,9 @@ export class InlineDecorations implements vscode.Disposable {
       for (const fn of file.modified) {
         const range = lineRange(editor.document, fn.line);
         if (!range) continue;
-        const sev: Severity = fn.topSeverity ?? 'low';
-        if (sev === 'high') high.push(range);
-        else if (sev === 'medium') medium.push(range);
-        else low.push(range);
+        const bucket =
+          fn.topSeverity === 'high' ? high : fn.topSeverity === 'medium' ? medium : low;
+        bucket.push(range);
       }
       for (const fn of file.added) {
         const range = lineRange(editor.document, fn.line);
@@ -85,25 +78,30 @@ export class InlineDecorations implements vscode.Disposable {
   }
 }
 
-function lineRange(doc: vscode.TextDocument, line1: number): vscode.Range | undefined {
+const makeDecoration = (color: string): vscode.TextEditorDecorationType =>
+  vscode.window.createTextEditorDecorationType({
+    gutterIconPath: vscode.Uri.parse(makeSvgDataUri(color)),
+    gutterIconSize: 'contain',
+    overviewRulerColor: color,
+    overviewRulerLane: vscode.OverviewRulerLane.Right,
+  });
+
+const lineRange = (doc: vscode.TextDocument, line1: number): vscode.Range | undefined => {
   const idx = Math.max(0, Math.min(doc.lineCount - 1, line1 - 1));
   return doc.lineAt(idx).range;
-}
+};
 
-function makeSvgDataUri(color: string): string {
+const makeSvgDataUri = (color: string): string => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.5" fill="${color}"/></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
+};
 
-export function summarizeForStatus(snapshot: AnalysisSnapshot): string {
+export const summarizeForStatus = (snapshot: AnalysisSnapshot): string => {
   const counts: Record<Severity, number> = { safe: 0, low: 0, medium: 0, high: 0 };
   let added = 0;
   for (const f of snapshot.files) {
     added += f.added.length;
-    for (const m of f.modified) {
-      const s = m.topSeverity ?? 'low';
-      counts[s]++;
-    }
+    for (const m of f.modified) counts[m.topSeverity ?? 'low']++;
   }
   const parts: string[] = [];
   if (counts.high) parts.push(`${counts.high} high`);
@@ -111,7 +109,6 @@ export function summarizeForStatus(snapshot: AnalysisSnapshot): string {
   if (counts.low) parts.push(`${counts.low} low`);
   if (added) parts.push(`+${added}`);
   return parts.length ? `ImpactFlow: ${parts.join(' · ')}` : 'ImpactFlow: clean';
-}
+};
 
-/** unused — re-exported for tests if needed. */
 export type { FnSummary };

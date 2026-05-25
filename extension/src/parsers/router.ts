@@ -1,7 +1,3 @@
-/**
- * Language router — dispatch parsing to the right backend by file extension.
- */
-
 import type { FnFacts } from '../behavior-diff/facts.js';
 import { extractFacts as extractTsFacts } from '../behavior-diff/facts.js';
 import { extractCsharpFacts } from './csharp/facts.js';
@@ -62,115 +58,75 @@ export type SupportedLanguage =
   | 'gdscript'
   | 'powershell';
 
-export function languageFor(filePath: string): SupportedLanguage | null {
-  const lower = filePath.toLowerCase();
-  if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return 'typescript';
-  if (
-    lower.endsWith('.js') ||
-    lower.endsWith('.jsx') ||
-    lower.endsWith('.mjs') ||
-    lower.endsWith('.cjs')
-  )
-    return 'javascript';
-  if (lower.endsWith('.py') || lower.endsWith('.pyi')) return 'python';
-  if (lower.endsWith('.go')) return 'go';
-  if (lower.endsWith('.dart')) return 'dart';
-  if (lower.endsWith('.java')) return 'java';
-  if (lower.endsWith('.kt') || lower.endsWith('.kts')) return 'kotlin';
-  if (lower.endsWith('.cs')) return 'csharp';
-  if (lower.endsWith('.rs')) return 'rust';
-  if (lower.endsWith('.php')) return 'php';
-  if (lower.endsWith('.swift')) return 'swift';
-  if (lower.endsWith('.lua')) return 'lua';
-  if (lower.endsWith('.ex') || lower.endsWith('.exs')) return 'elixir';
-  if (lower.endsWith('.m') || lower.endsWith('.mm')) return 'objc';
-  if (lower.endsWith('.scala') || lower.endsWith('.sc')) return 'scala';
-  if (lower.endsWith('.fs') || lower.endsWith('.fsx') || lower.endsWith('.fsi')) return 'fsharp';
-  if (lower.endsWith('.r') || lower.endsWith('.rmd')) return 'r';
-  if (lower.endsWith('.gd')) return 'gdscript';
-  if (lower.endsWith('.ps1') || lower.endsWith('.psm1') || lower.endsWith('.psd1'))
-    return 'powershell';
+type Adapter = {
+  build: (filePath: string, text: string) => FunctionTable;
+  facts: (text: string) => FnFacts;
+};
+
+const EXTENSIONS: Array<[RegExp, SupportedLanguage]> = [
+  [/\.(ts|tsx)$/i, 'typescript'],
+  [/\.(js|jsx|mjs|cjs)$/i, 'javascript'],
+  [/\.(py|pyi)$/i, 'python'],
+  [/\.go$/i, 'go'],
+  [/\.dart$/i, 'dart'],
+  [/\.java$/i, 'java'],
+  [/\.(kt|kts)$/i, 'kotlin'],
+  [/\.cs$/i, 'csharp'],
+  [/\.rs$/i, 'rust'],
+  [/\.php$/i, 'php'],
+  [/\.swift$/i, 'swift'],
+  [/\.lua$/i, 'lua'],
+  [/\.(ex|exs)$/i, 'elixir'],
+  [/\.(m|mm)$/i, 'objc'],
+  [/\.(scala|sc)$/i, 'scala'],
+  [/\.(fs|fsx|fsi)$/i, 'fsharp'],
+  [/\.(r|rmd)$/i, 'r'],
+  [/\.gd$/i, 'gdscript'],
+  [/\.(ps1|psm1|psd1)$/i, 'powershell'],
+];
+
+// Wrap the TS facts adapter so its signature matches the others (single-arg `text`).
+const tsFactsAdapter = (text: string): FnFacts => extractTsFacts(text, 'function');
+
+const ADAPTERS: Record<SupportedLanguage, Adapter> = {
+  typescript: { build: buildTsFunctionTable, facts: tsFactsAdapter },
+  javascript: { build: buildTsFunctionTable, facts: tsFactsAdapter },
+  python: { build: buildPythonFunctionTable, facts: extractPythonFacts },
+  go: { build: buildGoFunctionTable, facts: extractGoFacts },
+  dart: { build: buildDartFunctionTable, facts: extractDartFacts },
+  java: { build: buildJavaFunctionTable, facts: extractJavaFacts },
+  kotlin: { build: buildKotlinFunctionTable, facts: extractKotlinFacts },
+  csharp: { build: buildCsharpFunctionTable, facts: extractCsharpFacts },
+  rust: { build: buildRustFunctionTable, facts: extractRustFacts },
+  php: { build: buildPhpFunctionTable, facts: extractPhpFacts },
+  swift: { build: buildSwiftFunctionTable, facts: extractSwiftFacts },
+  lua: { build: buildLuaFunctionTable, facts: extractLuaFacts },
+  elixir: { build: buildElixirFunctionTable, facts: extractElixirFacts },
+  objc: { build: buildObjcFunctionTable, facts: extractObjcFacts },
+  scala: { build: buildScalaFunctionTable, facts: extractScalaFacts },
+  fsharp: { build: buildFsharpFunctionTable, facts: extractFsharpFacts },
+  r: { build: buildRFunctionTable, facts: extractRFacts },
+  gdscript: { build: buildGdscriptFunctionTable, facts: extractGdscriptFacts },
+  powershell: { build: buildPowershellFunctionTable, facts: extractPowershellFacts },
+};
+
+export const languageFor = (filePath: string): SupportedLanguage | null => {
+  for (const [re, lang] of EXTENSIONS) {
+    if (re.test(filePath)) return lang;
+  }
   return null;
-}
+};
 
-export function buildFunctionTable(filePath: string, text: string): FunctionTable {
-  switch (languageFor(filePath)) {
-    case 'python':
-      return buildPythonFunctionTable(filePath, text);
-    case 'go':
-      return buildGoFunctionTable(filePath, text);
-    case 'dart':
-      return buildDartFunctionTable(filePath, text);
-    case 'java':
-      return buildJavaFunctionTable(filePath, text);
-    case 'kotlin':
-      return buildKotlinFunctionTable(filePath, text);
-    case 'csharp':
-      return buildCsharpFunctionTable(filePath, text);
-    case 'rust':
-      return buildRustFunctionTable(filePath, text);
-    case 'php':
-      return buildPhpFunctionTable(filePath, text);
-    case 'swift':
-      return buildSwiftFunctionTable(filePath, text);
-    case 'lua':
-      return buildLuaFunctionTable(filePath, text);
-    case 'elixir':
-      return buildElixirFunctionTable(filePath, text);
-    case 'objc':
-      return buildObjcFunctionTable(filePath, text);
-    case 'scala':
-      return buildScalaFunctionTable(filePath, text);
-    case 'fsharp':
-      return buildFsharpFunctionTable(filePath, text);
-    case 'r':
-      return buildRFunctionTable(filePath, text);
-    case 'gdscript':
-      return buildGdscriptFunctionTable(filePath, text);
-    case 'powershell':
-      return buildPowershellFunctionTable(filePath, text);
-    default:
-      return buildTsFunctionTable(filePath, text);
-  }
-}
+export const buildFunctionTable = (filePath: string, text: string): FunctionTable => {
+  const lang = languageFor(filePath);
+  return (lang ? ADAPTERS[lang] : ADAPTERS.typescript).build(filePath, text);
+};
 
-export function extractFactsRouted(fnEntry: FnEntry): FnFacts {
-  switch (languageFor(fnEntry.filePath)) {
-    case 'python':
-      return extractPythonFacts(fnEntry.fullText);
-    case 'go':
-      return extractGoFacts(fnEntry.fullText);
-    case 'dart':
-      return extractDartFacts(fnEntry.fullText);
-    case 'java':
-      return extractJavaFacts(fnEntry.fullText);
-    case 'kotlin':
-      return extractKotlinFacts(fnEntry.fullText);
-    case 'csharp':
-      return extractCsharpFacts(fnEntry.fullText);
-    case 'rust':
-      return extractRustFacts(fnEntry.fullText);
-    case 'php':
-      return extractPhpFacts(fnEntry.fullText);
-    case 'swift':
-      return extractSwiftFacts(fnEntry.fullText);
-    case 'lua':
-      return extractLuaFacts(fnEntry.fullText);
-    case 'elixir':
-      return extractElixirFacts(fnEntry.fullText);
-    case 'objc':
-      return extractObjcFacts(fnEntry.fullText);
-    case 'scala':
-      return extractScalaFacts(fnEntry.fullText);
-    case 'fsharp':
-      return extractFsharpFacts(fnEntry.fullText);
-    case 'r':
-      return extractRFacts(fnEntry.fullText);
-    case 'gdscript':
-      return extractGdscriptFacts(fnEntry.fullText);
-    case 'powershell':
-      return extractPowershellFacts(fnEntry.fullText);
-    default:
-      return extractTsFacts(fnEntry.fullText, fnEntry.kind);
+export const extractFactsRouted = (fnEntry: FnEntry): FnFacts => {
+  const lang = languageFor(fnEntry.filePath);
+  if (lang === 'typescript' || lang === 'javascript' || lang === null) {
+    // TS extractor still needs the FunctionKind for wrapping; keep that path explicit.
+    return extractTsFacts(fnEntry.fullText, fnEntry.kind);
   }
-}
+  return ADAPTERS[lang].facts(fnEntry.fullText);
+};

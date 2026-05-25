@@ -92,7 +92,7 @@ function buildHookBlock(mode: 'warn' | 'block'): string {
   // want commit time blocked on a 5 MB extension load).
   return [
     SENTINEL_START,
-    '# Mode: ' + mode,
+    `# Mode: ${mode}`,
     '# Reviews staged diff against simple risk heuristics.',
     '# Bypass any time with: git commit --no-verify',
     '',

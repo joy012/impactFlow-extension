@@ -1,11 +1,3 @@
-/**
- * Opt-in telemetry. No-ops until `impactflow.telemetry` is true AND a
- * connection string is configured at build time.
- *
- * What we send: anonymous counts only. Never source, paths, identifiers, or diffs.
- * What we don't send: anything else.
- */
-
 import * as vscode from 'vscode';
 import { logger } from '../logger.js';
 
@@ -46,11 +38,9 @@ class Telemetry {
 
   send(event: TelemetryEvent): void {
     if (!this.enabled) return;
-    // Real wiring happens in Phase 6 publish step:
-    //   import TelemetryReporter from '@vscode/extension-telemetry';
-    //   reporter.sendTelemetryEvent(event.name, normalized);
-    // We keep the stub here so opting out is the verified default.
-    logger.debug(`[telemetry stub] ${event.name} ${JSON.stringify(event.props ?? {})}`);
+    // N4 — every event carries extensionVersion alongside vscodeVersion for consistent slicing.
+    const props = { ...(event.props ?? {}), extensionVersion: this.extensionVersion };
+    logger.debug(`[telemetry stub] ${event.name} ${JSON.stringify(props)}`);
   }
 
   get version(): string {

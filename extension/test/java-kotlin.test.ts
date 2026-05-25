@@ -129,7 +129,7 @@ internal fun ints() {}`,
 
 describe('Kotlin — extractKotlinFacts', () => {
   it('detects suspend as async', () => {
-    const facts = extractKotlinFacts(`suspend fun fetch(id: Int): User { return db.get(id) }`);
+    const facts = extractKotlinFacts('suspend fun fetch(id: Int): User { return db.get(id) }');
     expect(facts.isAsync).toBe(true);
   });
 

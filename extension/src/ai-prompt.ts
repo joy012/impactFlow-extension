@@ -1,11 +1,6 @@
-/**
- * F11 — AI prompt template generator.
- * Builds a copy-pasteable prompt for Claude / Copilot / Cursor describing the change.
- */
-
 import type { FnSummary } from './shared/messages.js';
 
-export function buildAiPrompt(fn: FnSummary, filePath: string): string {
+export const buildAiPrompt = (fn: FnSummary, filePath: string): string => {
   const lines: string[] = [];
   lines.push(
     `I changed \`${fn.name}\` in \`${shorten(filePath)}\` (line ${fn.line}).`,
@@ -21,16 +16,12 @@ export function buildAiPrompt(fn: FnSummary, filePath: string): string {
 
   if (fn.impacted && fn.impacted.length > 0) {
     lines.push('', 'Likely-affected call sites (review these):');
-    for (const r of fn.impacted.slice(0, 10)) {
-      lines.push(`- ${shorten(r.filePath)}:${r.line}`);
-    }
+    for (const r of fn.impacted.slice(0, 10)) lines.push(`- ${shorten(r.filePath)}:${r.line}`);
   }
 
   if (fn.impactedTests && fn.impactedTests.length > 0) {
     lines.push('', 'Tests that exercise this function:');
-    for (const r of fn.impactedTests.slice(0, 10)) {
-      lines.push(`- ${shorten(r.filePath)}:${r.line}`);
-    }
+    for (const r of fn.impactedTests.slice(0, 10)) lines.push(`- ${shorten(r.filePath)}:${r.line}`);
   }
 
   lines.push(
@@ -42,8 +33,6 @@ export function buildAiPrompt(fn: FnSummary, filePath: string): string {
   );
 
   return lines.join('\n');
-}
+};
 
-function shorten(p: string): string {
-  return p.split(/[\\/]/).slice(-3).join('/');
-}
+const shorten = (p: string): string => p.split(/[\\/]/).slice(-3).join('/');

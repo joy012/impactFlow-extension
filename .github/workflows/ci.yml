@@ -40,6 +40,10 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Bench (engine corpus gate)
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm --filter extension bench
+
       - name: Build
         run: pnpm build
 

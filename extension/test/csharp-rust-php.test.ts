@@ -41,7 +41,7 @@ describe('C# — buildCsharpFunctionTable', () => {
 
 describe('C# — extractCsharpFacts', () => {
   it('detects async via Task / async', () => {
-    const facts = extractCsharpFacts(`public async Task<int> Op() { return await Y(); }`);
+    const facts = extractCsharpFacts('public async Task<int> Op() { return await Y(); }');
     expect(facts.isAsync).toBe(true);
   });
   it('detects HttpClient + Console effects', () => {
@@ -79,7 +79,7 @@ impl User {
 
 describe('Rust — extractRustFacts', () => {
   it('detects async fn', () => {
-    const facts = extractRustFacts(`pub async fn fetch() -> Result<User, Error> { Ok(u) }`);
+    const facts = extractRustFacts('pub async fn fetch() -> Result<User, Error> { Ok(u) }');
     expect(facts.isAsync).toBe(true);
   });
   it('records panic + Result as throws-proxy', () => {

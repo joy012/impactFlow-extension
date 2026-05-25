@@ -1,9 +1,3 @@
-/**
- * Behavior Diff Engine — Phase 2 (the core).
- * Detectors are pure functions over FnFacts.
- * See docs/DONE.md for the operational definition.
- */
-
 import { extractFactsRouted } from '../parsers/router.js';
 import type { FnEntry } from '../parsers/typescript/function-table.js';
 import type { FnFacts } from './facts.js';
@@ -36,7 +30,7 @@ export interface BehaviorDiffResult {
 
 type Detector = (before: FnFacts, after: FnFacts) => BehaviorDiff[];
 
-export function diffBehavior(before: FnEntry, after: FnEntry): BehaviorDiffResult {
+export const diffBehavior = (before: FnEntry, after: FnEntry): BehaviorDiffResult => {
   const bFacts = extractFactsRouted(before);
   const aFacts = extractFactsRouted(after);
 
@@ -51,12 +45,8 @@ export function diffBehavior(before: FnEntry, after: FnEntry): BehaviorDiffResul
   }
 
   const diffs: BehaviorDiff[] = [];
-  for (const d of DETECTORS) {
-    diffs.push(...d(bFacts, aFacts));
-  }
+  for (const d of DETECTORS) diffs.push(...d(bFacts, aFacts));
 
-  // Stale-doc — body changed but the leading doc-comment did not.
-  // docs/DONE.md.
   if (
     before.leadingDocHash &&
     before.leadingDocHash === after.leadingDocHash &&
@@ -71,7 +61,6 @@ export function diffBehavior(before: FnEntry, after: FnEntry): BehaviorDiffResul
     });
   }
 
-  // Complexity jump — cyclomatic complexity rose by ≥3.
   if (aFacts.complexity - bFacts.complexity >= 3) {
     diffs.push({
       type: 'complexity_jump',
@@ -82,9 +71,7 @@ export function diffBehavior(before: FnEntry, after: FnEntry): BehaviorDiffResul
   }
 
   return { diffs, pureRenameOrFormatting: false };
-}
-
-/* ------------------------------ detectors ------------------------------ */
+};
 
 const detectSignature: Detector = (b, a) => {
   if (b.paramSig === a.paramSig && b.returnType === a.returnType) return [];
@@ -93,23 +80,13 @@ const detectSignature: Detector = (b, a) => {
     parts.push(`parameters changed (${b.paramSig || '∅'} → ${a.paramSig || '∅'})`);
   if (b.returnType !== a.returnType)
     parts.push(`return type changed (${b.returnType ?? '?'} → ${a.returnType ?? '?'})`);
-  return [
-    {
-      type: 'signature',
-      severity: 'high',
-      description: parts.join('; '),
-      confidence: 0.95,
-    },
-  ];
+  return [{ type: 'signature', severity: 'high', description: parts.join('; '), confidence: 0.95 }];
 };
 
 const detectBranchLogic: Detector = (b, a) => {
   if (sameSet(b.branchConditions, a.branchConditions)) return [];
-  const before = new Set(b.branchConditions);
-  const after = new Set(a.branchConditions);
-  const removed = [...before].filter((x) => !after.has(x));
-  const added = [...after].filter((x) => !before.has(x));
-  if (removed.length === 0 && added.length === 0) return [];
+  const { added, removed } = diffSets(b.branchConditions, a.branchConditions);
+  if (added.length === 0 && removed.length === 0) return [];
   return [
     {
       type: 'branch_logic',
@@ -122,12 +99,9 @@ const detectBranchLogic: Detector = (b, a) => {
 
 const detectReturnShape: Detector = (b, a) => {
   if (sameSet(b.returnExprs, a.returnExprs)) return [];
-  const before = new Set(b.returnExprs);
-  const after = new Set(a.returnExprs);
-  const added = [...after].filter((x) => !before.has(x));
-  const removed = [...before].filter((x) => !after.has(x));
+  const { added, removed } = diffSets(b.returnExprs, a.returnExprs);
   if (added.length === 0 && removed.length === 0) return [];
-  // If only the *number* of return statements changed, severity is high (control flow shift).
+  // Count change = control-flow shift → high severity.
   const severity: Severity = b.returnExprs.length !== a.returnExprs.length ? 'high' : 'medium';
   return [
     {
@@ -141,10 +115,7 @@ const detectReturnShape: Detector = (b, a) => {
 
 const detectCallSet: Detector = (b, a) => {
   if (sameSet(b.callSites, a.callSites)) return [];
-  const before = new Set(b.callSites);
-  const after = new Set(a.callSites);
-  const added = [...after].filter((x) => !before.has(x));
-  const removed = [...before].filter((x) => !after.has(x));
+  const { added, removed } = diffSets(b.callSites, a.callSites);
   if (added.length === 0 && removed.length === 0) return [];
   return [
     {
@@ -158,10 +129,7 @@ const detectCallSet: Detector = (b, a) => {
 
 const detectThrowSet: Detector = (b, a) => {
   if (sameSet(b.throws, a.throws)) return [];
-  const before = new Set(b.throws);
-  const after = new Set(a.throws);
-  const added = [...after].filter((x) => !before.has(x));
-  const removed = [...before].filter((x) => !after.has(x));
+  const { added, removed } = diffSets(b.throws, a.throws);
   if (added.length === 0 && removed.length === 0) return [];
   return [
     {
@@ -179,22 +147,13 @@ const detectAsyncness: Detector = (b, a) => {
   if (b.isAsync !== a.isAsync) parts.push(a.isAsync ? 'became async' : 'no longer async');
   if (b.isGenerator !== a.isGenerator)
     parts.push(a.isGenerator ? 'became generator' : 'no longer generator');
-  return [
-    {
-      type: 'asyncness',
-      severity: 'high',
-      description: parts.join('; '),
-      confidence: 0.95,
-    },
-  ];
+  return [{ type: 'asyncness', severity: 'high', description: parts.join('; '), confidence: 0.95 }];
 };
 
 const detectSideEffect: Detector = (b, a) => {
-  const before = b.effects;
-  const after = a.effects;
-  if (setEqual(before, after)) return [];
-  const added = [...after].filter((x) => !before.has(x));
-  const removed = [...before].filter((x) => !after.has(x));
+  if (setEqual(b.effects, a.effects)) return [];
+  const added = [...a.effects].filter((x) => !b.effects.has(x));
+  const removed = [...b.effects].filter((x) => !a.effects.has(x));
   return [
     {
       type: 'side_effect_surface',
@@ -215,31 +174,37 @@ const DETECTORS: Detector[] = [
   detectSideEffect,
 ];
 
-/* ------------------------------ helpers ------------------------------ */
-
-function sameSet(a: string[], b: string[]): boolean {
+const sameSet = (a: string[], b: string[]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
-}
+};
 
-function setEqual<T>(a: Set<T>, b: Set<T>): boolean {
+const setEqual = <T>(a: Set<T>, b: Set<T>): boolean => {
   if (a.size !== b.size) return false;
   for (const x of a) if (!b.has(x)) return false;
   return true;
-}
+};
 
-function describeAddRemove(label: string, added: string[], removed: string[]): string {
+const diffSets = (before: string[], after: string[]): { added: string[]; removed: string[] } => {
+  const bSet = new Set(before);
+  const aSet = new Set(after);
+  return {
+    added: [...aSet].filter((x) => !bSet.has(x)),
+    removed: [...bSet].filter((x) => !aSet.has(x)),
+  };
+};
+
+const describeAddRemove = (label: string, added: string[], removed: string[]): string => {
   const parts: string[] = [];
   if (added.length)
     parts.push(`+${label}: ${added.slice(0, 4).join(', ')}${added.length > 4 ? '…' : ''}`);
   if (removed.length)
     parts.push(`-${label}: ${removed.slice(0, 4).join(', ')}${removed.length > 4 ? '…' : ''}`);
   return parts.join(' / ');
-}
+};
 
-/* Severity weight for downstream Phase 3 risk scoring. */
-export function severityWeight(s: Severity): number {
+export const severityWeight = (s: Severity): number => {
   switch (s) {
     case 'safe':
       return 0;
@@ -250,4 +215,4 @@ export function severityWeight(s: Severity): number {
     case 'high':
       return 4;
   }
-}
+};

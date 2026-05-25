@@ -92,6 +92,46 @@
         "command": "impactflow.compareBranches",
         "title": "Compare Branches",
         "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.cleanupDeadCode",
+        "title": "Cleanup Dead Code (preview + apply)",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.toggleFocusMode",
+        "title": "Toggle Focus Mode",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.installPreCommit",
+        "title": "Install Pre-Commit Hook (warn)",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.installPreCommitBlock",
+        "title": "Install Pre-Commit Hook (block)",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.uninstallPreCommit",
+        "title": "Uninstall Pre-Commit Hook",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.draftCommitMessage",
+        "title": "Draft Commit Message",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.draftPrDescription",
+        "title": "Draft PR Description",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.resetDismissals",
+        "title": "Reset Dismissals",
+        "category": "ImpactFlow"
       }
     ],
     "configuration": {
@@ -193,19 +233,25 @@
             "id": "intro",
             "title": "What ImpactFlow does",
             "description": "ImpactFlow analyzes **behavioral changes** — not just file structure — and surfaces what other modules in your system might be affected.\n\nOpen the side panel from the activity bar to see live impact analysis.",
-            "media": { "markdown": "media/walkthrough/intro.md" }
+            "media": {
+              "markdown": "media/walkthrough/intro.md"
+            }
           },
           {
             "id": "tryIt",
             "title": "Try it on your code",
             "description": "Edit any function in a TypeScript file. ImpactFlow will list the change in the side panel and rank possibly-affected modules.",
-            "media": { "markdown": "media/walkthrough/try-it.md" }
+            "media": {
+              "markdown": "media/walkthrough/try-it.md"
+            }
           },
           {
             "id": "feedback",
             "title": "Tell us what you think",
             "description": "ImpactFlow is in beta. Send feedback, file bugs, or request features directly from the side panel.\n\n[Send feedback](command:impactflow.sendFeedback)",
-            "media": { "markdown": "media/walkthrough/feedback.md" }
+            "media": {
+              "markdown": "media/walkthrough/feedback.md"
+            }
           }
         ]
       }
@@ -213,14 +259,15 @@
   },
   "scripts": {
     "build": "pnpm run build:webview && pnpm run build:host",
-    "build:host": "node esbuild.config.mjs --production",
+    "build:host": "pnpm run build:grammars && node esbuild.config.mjs --production",
+    "build:grammars": "node scripts/copy-grammars.mjs",
     "build:webview": "pnpm --filter webview build && node scripts/copy-webview.mjs",
-    "dev": "pnpm run build:webview && node esbuild.config.mjs --watch",
+    "dev": "pnpm run build:grammars && pnpm run build:webview && node esbuild.config.mjs --watch",
     "watch": "node esbuild.config.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "pnpm run build:grammars && vitest run --passWithNoTests",
     "test:integration": "vscode-test",
-    "bench": "node scripts/bench.mjs",
+    "bench": "pnpm run build:grammars && node scripts/bench.mjs",
     "package": "pnpm run build && vsce package --no-dependencies",
     "clean": "rm -rf dist out"
   },
@@ -231,11 +278,14 @@
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.2.1",
     "esbuild": "^0.24.0",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-python": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.0"
   },
   "dependencies": {
     "simple-git": "^3.27.0",
-    "ts-morph": "^24.0.0"
+    "web-tree-sitter": "^0.26.9"
   }
 }
