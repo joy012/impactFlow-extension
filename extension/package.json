@@ -124,6 +124,17 @@
         "command": "impactflow.ai.clearCache",
         "title": "AI: Clear Response Cache",
         "category": "ImpactFlow"
+      },
+      { "command": "impactflow.jumpToFn", "title": "Jump to Function", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.cycleSeverity",
+        "title": "Cycle Severity Filter",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.showCallerTree",
+        "title": "Show Caller Tree",
+        "category": "ImpactFlow"
       }
     ],
     "configuration": {

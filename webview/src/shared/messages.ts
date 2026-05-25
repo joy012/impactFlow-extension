@@ -31,6 +31,8 @@ export interface InitPayload {
     enable: boolean;
     githubIssuesUrl: string;
   };
+  density: 'compact' | 'comfortable';
+  collapsedPaths: string[];
 }
 
 export type BehaviorDiffType =
@@ -123,4 +125,5 @@ export type WebviewToHostMessage =
   | { type: 'revealFunction'; payload: { filePath: string; line: number } }
   | { type: 'dismissFinding'; payload: { fnId: string; reason?: string } }
   | { type: 'copyToClipboard'; payload: { text: string; toast?: string } }
-  | { type: 'aiActionForFn'; payload: { fnId: string; action: 'explain' | 'tests' | 'review' } };
+  | { type: 'aiActionForFn'; payload: { fnId: string; action: 'explain' | 'tests' | 'review' } }
+  | { type: 'setCollapseState'; payload: { filePath: string; collapsed: boolean } };

@@ -60,10 +60,13 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 
 ### Side panel
 - ⏳ Animated progress bar with phase labels (`parsing → diffing → references → risk → rendering`)
-- 🎚️ Severity chips (all / medium / high)
+- 🎚️ Severity chips (all / medium / high) + secondary status-bar cycler
 - 👆 Click-to-reveal navigation
+- ⌨️ Vim-style keyboard nav: `j` / `k` next/prev · `Enter` open · `x` dismiss · `?` shortcuts
+- 💾 Persistent collapse state per workspace
 - 👎 Persistent dismissals · `Reset Dismissals` command to restore them
 - 🎨 Auto light / dark / high-contrast theme · `compact` / `comfortable` density setting
+- 🌳 **Caller tree** (markdown) — `ImpactFlow: Show Caller Tree` builds a depth-limited transitive caller graph
 
 ### Inline + status bar
 - 🟥🟧🟦 Gutter circles per severity + overview-ruler marks
@@ -113,7 +116,7 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 
 ---
 
-## 🎛️ Commands (22)
+## 🎛️ Commands (25)
 
 > Open the command palette (`Cmd/Ctrl + Shift + P`), type `imp` — all ImpactFlow commands appear with autocomplete. You never type the full name.
 
@@ -138,6 +141,9 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 | `ImpactFlow: AI: Suggest Tests` | Model proposes 3-6 test cases for the changed function |
 | `ImpactFlow: AI: Review High-Risk Change` | Focused skeptical review of HIGH-severity changes |
 | `ImpactFlow: AI: Clear Response Cache` | Drop the 24h AI response cache |
+| `ImpactFlow: Show Caller Tree` | Depth-limited transitive caller tree as markdown (MVP for the v0.2 webview tree) |
+| `ImpactFlow: Jump to Function` | Quick-pick across modified functions and jump to source |
+| `ImpactFlow: Cycle Severity Filter` | Cycle the side-panel severity filter (all / low / medium / high) |
 
 ---
 
@@ -202,7 +208,7 @@ In VS Code, press **F5** → opens an Extension Development Host with ImpactFlow
 |---|---|
 | `pnpm lint` | Biome lint |
 | `pnpm typecheck` | `tsc --noEmit` (both packages) |
-| `pnpm test` | Vitest (100 / 100 passing) |
+| `pnpm test` | Vitest (134 / 134 extension + 12 / 12 webview) |
 | `pnpm bench` | Run the corpus precision/recall benchmark |
 | `pnpm build` | Production build (webview + esbuild bundle + WASM copy) |
 | `pnpm --filter extension package` | Produce `.vsix` |

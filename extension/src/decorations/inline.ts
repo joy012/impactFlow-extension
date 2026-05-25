@@ -1,12 +1,23 @@
 import * as vscode from 'vscode';
 import type { AnalysisSnapshot, FnSummary, Severity } from '../shared/messages.js';
 
-const COLORS = {
+// SVG fill colours: VS Code's SVG renderer can't resolve `--vscode-*` tokens,
+// so we hard-code reasonable hexes here that read well against light + dark
+// themes. The matching `overviewRulerColor` uses `ThemeColor` so the ruler
+// blends with the user's editor theme.
+const SVG_FILL = {
   high: '#e25555',
   medium: '#e2a23b',
   low: '#7aa2f7',
   added: '#3cb371',
 } as const;
+
+const RULER_THEME_COLOR: Record<keyof typeof SVG_FILL, vscode.ThemeColor> = {
+  high: new vscode.ThemeColor('editorOverviewRuler.errorForeground'),
+  medium: new vscode.ThemeColor('editorOverviewRuler.warningForeground'),
+  low: new vscode.ThemeColor('editorOverviewRuler.infoForeground'),
+  added: new vscode.ThemeColor('editorOverviewRuler.addedForeground'),
+};
 
 export class InlineDecorations implements vscode.Disposable {
   private readonly high: vscode.TextEditorDecorationType;
@@ -16,10 +27,10 @@ export class InlineDecorations implements vscode.Disposable {
   private disposed = false;
 
   constructor(_context: vscode.ExtensionContext) {
-    this.high = makeDecoration(COLORS.high);
-    this.medium = makeDecoration(COLORS.medium);
-    this.low = makeDecoration(COLORS.low);
-    this.addedType = makeDecoration(COLORS.added);
+    this.high = makeDecoration('high');
+    this.medium = makeDecoration('medium');
+    this.low = makeDecoration('low');
+    this.addedType = makeDecoration('added');
   }
 
   apply(snapshot: AnalysisSnapshot): void {
@@ -78,11 +89,11 @@ export class InlineDecorations implements vscode.Disposable {
   }
 }
 
-const makeDecoration = (color: string): vscode.TextEditorDecorationType =>
+const makeDecoration = (kind: keyof typeof SVG_FILL): vscode.TextEditorDecorationType =>
   vscode.window.createTextEditorDecorationType({
-    gutterIconPath: vscode.Uri.parse(makeSvgDataUri(color)),
+    gutterIconPath: vscode.Uri.parse(makeSvgDataUri(SVG_FILL[kind])),
     gutterIconSize: 'contain',
-    overviewRulerColor: color,
+    overviewRulerColor: RULER_THEME_COLOR[kind],
     overviewRulerLane: vscode.OverviewRulerLane.Right,
   });
 

@@ -5,6 +5,16 @@ All notable changes to ImpactFlow are documented here. Follows [Keep a Changelog
 ## [Unreleased]
 
 ### Added
+- **Impact Tree MVP** — new command `ImpactFlow: Show Caller Tree`. Builds a depth-limited (default 2, node-cap 200) transitive caller tree via `vscode.executeReferenceProvider`, renders as a markdown preview. Cycle-safe + cancellable. Full webview SVG tree is the v0.2 follow-up (`ROADMAP.md §1`).
+- **UX backlog: keyboard nav + persistent collapse + status-bar cycler + palette quick-jump:**
+  - `j` / `k` / `↓` / `↑` move the selection cursor in the side panel, `Enter` opens at line, `x` dismisses, `?` shows shortcuts
+  - Selected row scrolls into view; selection survives across snapshots
+  - Per-workspace persistent collapse state via `workspaceState` (capped at 500 entries)
+  - Second status-bar item `$(filter) <severity>` whose click cycles all → low → medium → high
+  - New `ImpactFlow: Jump to Function` and `ImpactFlow: Cycle Severity Filter` palette commands
+  - No-git empty state and "compare branches" CTA when there are no changes
+  - Density-aware row styling via `[data-density]` attribute (already had the setting)
+  - Webview theme audit: every color now flows through `--vscode-*` tokens or `ThemeColor`; the only literal hex left is the SVG gutter fill (renderer can't read tokens)
 - **AI integration (BYOK)** via `vscode.lm` Language Model API — the user picks their model in VS Code settings (Copilot, custom Anthropic/OpenAI providers, local Ollama). Extension never sees an API key.
   - 4 new commands: `AI: Explain Change`, `AI: Suggest Tests`, `AI: Review High-Risk Change`, `AI: Clear Response Cache`
   - 6 new settings: `impactflow.ai.enable` (default off), `preferredModel`, `cacheTtlHours`, `maxPromptTokens`, `maxResponseTokens`, `rateLimitSeconds`

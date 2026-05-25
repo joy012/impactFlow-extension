@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AnalysisFileSnapshot,
   AnalysisSnapshot,
@@ -10,6 +10,9 @@ import type {
 import { getVsCode } from '../vscode.js';
 import { EmptyState } from './EmptyState.js';
 
+type FilterSeverity = 'all' | 'medium' | 'high';
+const SEVERITY_ORDER = { safe: 0, low: 1, medium: 2, high: 3 } as const;
+
 export function SidePanel({
   init,
   snapshot,
@@ -19,7 +22,29 @@ export function SidePanel({
   snapshot: AnalysisSnapshot | undefined;
   onOpenFeedback: () => void;
 }) {
-  const [filterSev, setFilterSev] = useState<'all' | 'medium' | 'high'>('all');
+  const [filterSev, setFilterSev] = useState<FilterSeverity>('all');
+  const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
+  // Stable selection across re-renders — keyed by fn.id so a new snapshot doesn't reset position.
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+
+  // Seed collapsed paths from init once available.
+  useEffect(() => {
+    if (init) setCollapsedPaths(new Set(init.collapsedPaths));
+  }, [init]);
+
+  const toggleCollapse = useCallback((filePath: string) => {
+    setCollapsedPaths((prev) => {
+      const next = new Set(prev);
+      const collapsed = !next.has(filePath);
+      if (collapsed) next.add(filePath);
+      else next.delete(filePath);
+      getVsCode().postMessage({
+        type: 'setCollapseState',
+        payload: { filePath, collapsed },
+      });
+      return next;
+    });
+  }, []);
 
   if (!init) {
     return <EmptyState title="Loading…" body="Connecting to the extension host." />;
@@ -29,24 +54,26 @@ export function SidePanel({
     return (
       <EmptyState
         title="ImpactFlow is disabled"
-        body="Enable it in settings → impactflow.enable."
+        body="Re-enable in settings → impactflow.enable."
       />
     );
   }
 
   const rawFiles = snapshot?.files ?? [];
-  const files =
-    filterSev === 'all'
-      ? rawFiles
-      : rawFiles
-          .map((f) => ({
-            ...f,
-            modified: f.modified.filter((m) => {
-              const order = { safe: 0, low: 1, medium: 2, high: 3 } as const;
-              return order[m.topSeverity ?? 'low'] >= order[filterSev];
-            }),
-          }))
-          .filter((f) => f.modified.length + f.added.length + f.removed.length > 0);
+  const files = useMemo(
+    () =>
+      filterSev === 'all'
+        ? rawFiles
+        : rawFiles
+            .map((f) => ({
+              ...f,
+              modified: f.modified.filter(
+                (m) => SEVERITY_ORDER[m.topSeverity ?? 'low'] >= SEVERITY_ORDER[filterSev],
+              ),
+            }))
+            .filter((f) => f.modified.length + f.added.length + f.removed.length > 0),
+    [rawFiles, filterSev],
+  );
 
   if (rawFiles.length === 0) {
     return (
@@ -55,20 +82,19 @@ export function SidePanel({
           Since <code className="text-fg">HEAD</code> · no changes
         </section>
         <div className="flex-1">
-          <EmptyState
-            title="No behavior changes since HEAD"
-            body="Edit a TypeScript or JavaScript file in this workspace and ImpactFlow will surface what changed."
-            action={
-              init.feedback.enable ? { label: 'Send feedback', onClick: onOpenFeedback } : undefined
-            }
-          />
+          <EmptyStateNudge init={init} onOpenFeedback={onOpenFeedback} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <KeyboardNavRoot
+      files={files}
+      selectedId={selectedId}
+      setSelectedId={setSelectedId}
+      density={init.density}
+    >
       <section className="border-b border-border flex items-center justify-between gap-2 px-3 py-2 text-[11px] text-muted">
         <span>
           Since <code className="text-fg">HEAD</code> · {files.length} file
@@ -93,26 +119,153 @@ export function SidePanel({
       </section>
       <div className="flex-1">
         {files.map((file) => (
-          <FileBlock key={file.path} file={file} />
+          <FileBlock
+            key={file.path}
+            file={file}
+            collapsed={collapsedPaths.has(file.path)}
+            onToggle={() => toggleCollapse(file.path)}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+          />
         ))}
       </div>
+    </KeyboardNavRoot>
+  );
+}
+
+// Wraps the side panel content with keyboard navigation (j/k/enter/x/?).
+// Maintains a flat list of all visible fn ids so j/k can move through them in order.
+function KeyboardNavRoot({
+  files,
+  selectedId,
+  setSelectedId,
+  density,
+  children,
+}: {
+  files: AnalysisFileSnapshot[];
+  selectedId: string | undefined;
+  setSelectedId: (id: string | undefined) => void;
+  density: 'compact' | 'comfortable';
+  children: React.ReactNode;
+}) {
+  const flat = useMemo(() => {
+    const out: { id: string; filePath: string; line: number }[] = [];
+    for (const f of files) {
+      for (const m of f.modified) out.push({ id: m.id, filePath: f.path, line: m.line });
+      for (const a of f.added) out.push({ id: a.id, filePath: f.path, line: a.line });
+    }
+    return out;
+  }, [files]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Don't hijack keys when typing in inputs.
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (flat.length === 0) return;
+
+      const currentIdx = selectedId ? flat.findIndex((it) => it.id === selectedId) : -1;
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedId(flat[Math.min(flat.length - 1, currentIdx + 1)]?.id);
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedId(flat[Math.max(0, currentIdx - 1)]?.id);
+      } else if (e.key === 'Enter' && currentIdx >= 0) {
+        const cur = flat[currentIdx];
+        if (cur) {
+          getVsCode().postMessage({
+            type: 'revealFunction',
+            payload: { filePath: cur.filePath, line: cur.line },
+          });
+        }
+      } else if (e.key === 'x' && currentIdx >= 0) {
+        const cur = flat[currentIdx];
+        if (cur) {
+          getVsCode().postMessage({
+            type: 'dismissFinding',
+            payload: { fnId: cur.id, reason: 'not-useful' },
+          });
+        }
+      } else if (e.key === '?') {
+        alert(
+          'ImpactFlow shortcuts:\n  j / ↓  next function\n  k / ↑  previous function\n  Enter  open at line\n  x      dismiss\n  ?      this help',
+        );
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [flat, selectedId, setSelectedId]);
+
+  return (
+    <div
+      className="flex h-full flex-col outline-none"
+      data-density={density}
+      // Make the panel focusable so global keystrokes work even before the user clicks.
+      tabIndex={-1}
+    >
+      {children}
     </div>
   );
 }
 
-function FileBlock({ file }: { file: AnalysisFileSnapshot }) {
-  const [open, setOpen] = useState(true);
+function EmptyStateNudge({
+  init,
+  onOpenFeedback,
+}: {
+  init: InitPayload;
+  onOpenFeedback: () => void;
+}) {
+  // Surface a single concrete next action instead of generic prose.
+  if (!init.isGitRepo) {
+    return (
+      <EmptyState
+        title="No git repo here"
+        body="Run `git init` in this folder, then ImpactFlow can show what changed against HEAD."
+      />
+    );
+  }
+  return (
+    <EmptyState
+      title="No behavior changes since HEAD"
+      body="Edit a function to see live impact analysis. Or compare any two branches to see the full behavior diff between them."
+      action={{
+        label: 'Compare branches',
+        onClick: () =>
+          getVsCode().postMessage({
+            type: 'runCommand',
+            payload: { command: 'impactflow.compareBranches' },
+          }),
+      }}
+    />
+  );
+}
+
+function FileBlock({
+  file,
+  collapsed,
+  onToggle,
+  selectedId,
+  setSelectedId,
+}: {
+  file: AnalysisFileSnapshot;
+  collapsed: boolean;
+  onToggle: () => void;
+  selectedId: string | undefined;
+  setSelectedId: (id: string | undefined) => void;
+}) {
   const [showPossible, setShowPossible] = useState(false);
   const display = shortenPath(file.path);
   const totals = file.added.length + file.modified.length + file.removed.length;
   const likely = file.modified.filter((m) => (m.tier ?? 'likely') === 'likely');
   const possible = file.modified.filter((m) => m.tier === 'possible');
+  const open = !collapsed;
 
   return (
     <div className="border-b border-border">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className="hover:bg-[var(--vscode-list-hoverBackground)] flex w-full items-center justify-between px-3 py-1.5 text-left"
       >
         <span className="truncate text-xs">{display}</span>
@@ -122,9 +275,30 @@ function FileBlock({ file }: { file: AnalysisFileSnapshot }) {
       </button>
       {open && (
         <div className="pb-1">
-          <FnList label="Modified" tone="warn" file={file.path} items={likely} />
-          <FnList label="Added" tone="ok" file={file.path} items={file.added} />
-          <FnList label="Removed" tone="danger" file={file.path} items={file.removed} />
+          <FnList
+            label="Modified"
+            tone="warn"
+            file={file.path}
+            items={likely}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+          />
+          <FnList
+            label="Added"
+            tone="ok"
+            file={file.path}
+            items={file.added}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+          />
+          <FnList
+            label="Removed"
+            tone="danger"
+            file={file.path}
+            items={file.removed}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+          />
           {possible.length > 0 && (
             <div className="px-3 pt-1">
               <button
@@ -135,7 +309,15 @@ function FileBlock({ file }: { file: AnalysisFileSnapshot }) {
                 {showPossible ? '▾' : '▸'} {possible.length} possible (lower confidence)
               </button>
               {showPossible && (
-                <FnList label="" tone="warn" file={file.path} items={possible} dim />
+                <FnList
+                  label=""
+                  tone="warn"
+                  file={file.path}
+                  items={possible}
+                  selectedId={selectedId}
+                  setSelectedId={setSelectedId}
+                  dim
+                />
               )}
             </div>
           )}
@@ -151,12 +333,16 @@ function FnList({
   file,
   items,
   dim,
+  selectedId,
+  setSelectedId,
 }: {
   label: string;
   tone: 'warn' | 'ok' | 'danger';
   file: string;
   items: FnSummary[];
   dim?: boolean;
+  selectedId: string | undefined;
+  setSelectedId: (id: string | undefined) => void;
 }) {
   if (items.length === 0) return null;
   const toneClass = tone === 'warn' ? 'text-warn' : tone === 'ok' ? 'text-ok' : 'text-danger';
@@ -169,7 +355,14 @@ function FnList({
       )}
       <ul>
         {items.map((fn) => (
-          <FnRow key={fn.id} fn={fn} file={file} clickable={tone !== 'danger'} />
+          <FnRow
+            key={fn.id}
+            fn={fn}
+            file={file}
+            clickable={tone !== 'danger'}
+            selected={selectedId === fn.id}
+            onSelect={() => setSelectedId(fn.id)}
+          />
         ))}
       </ul>
     </div>
@@ -180,24 +373,37 @@ function FnRow({
   fn,
   file,
   clickable,
+  selected,
+  onSelect,
 }: {
   fn: FnSummary;
   file: string;
   clickable: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const hasDiffs = (fn.diffs?.length ?? 0) > 0;
+  const rowRef = useRef<HTMLLIElement | null>(null);
+
+  // Scroll the selected row into view when keyboard nav moves the cursor.
+  useEffect(() => {
+    if (selected && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [selected]);
 
   return (
-    <li>
+    <li ref={rowRef}>
       <div
-        className={`hover:bg-[var(--vscode-list-hoverBackground)] flex w-full items-center justify-between rounded px-2 py-0.5 text-xs ${
+        className={`hover:bg-[var(--vscode-list-hoverBackground)] flex w-full items-center justify-between rounded px-2 text-xs ${
           clickable ? 'cursor-pointer' : 'cursor-default'
-        }`}
+        } ${selected ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]' : ''} impactflow-row`}
       >
         <button
           type="button"
           onClick={() => {
+            onSelect();
             if (hasDiffs) setOpen((v) => !v);
             else if (clickable) {
               getVsCode().postMessage({
@@ -248,12 +454,13 @@ function FnRow({
         {clickable && (
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              onSelect();
               getVsCode().postMessage({
                 type: 'revealFunction',
                 payload: { filePath: file, line: fn.line },
-              })
-            }
+              });
+            }}
             className="text-muted ml-2 shrink-0 text-[11px] hover:underline"
             title="Go to source"
           >
@@ -469,7 +676,6 @@ function kindIcon(k: FnSummary['kind']): string {
 }
 
 function shortenPath(absPath: string): string {
-  // Last 2 segments is usually enough context for humans.
   const parts = absPath.split(/[\\/]/);
   return parts.slice(-3).join('/');
 }

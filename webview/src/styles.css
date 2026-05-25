@@ -59,6 +59,18 @@ button {
   cursor: pointer;
 }
 
+/* UX backlog — density toggle. Rows inside [data-density="compact"] shrink to ~22 px;
+   default (comfortable) stays at ~32 px via natural padding. */
+[data-density="compact"] .impactflow-row {
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.4;
+}
+[data-density="comfortable"] .impactflow-row {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
 /* Progress bar — shimmer for indeterminate work, pulse for the status dot. */
 @keyframes impactflow-progress-shimmer {
   0% {

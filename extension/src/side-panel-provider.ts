@@ -13,6 +13,9 @@ import type {
 } from './shared/messages.js';
 import type { FeedbackStore } from './storage/feedback-store.js';
 
+const COLLAPSED_KEY = 'impactflow.sidePanel.collapsedPaths';
+const MAX_COLLAPSED = 500;
+
 export class SidePanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'impactflow.sidePanel';
   private view: vscode.WebviewView | undefined;
@@ -97,6 +100,10 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
           .getConfiguration('impactflow.feedback')
           .get<string>('githubIssuesUrl', ''),
       },
+      density: vscode.workspace
+        .getConfiguration('impactflow.ui')
+        .get<'compact' | 'comfortable'>('density', 'comfortable'),
+      collapsedPaths: this.context.workspaceState.get<string[]>(COLLAPSED_KEY, []),
     };
   }
 
@@ -124,6 +131,18 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       case 'copyToClipboard': {
         await vscode.env.clipboard.writeText(message.payload.text);
         vscode.window.setStatusBarMessage(message.payload.toast ?? 'Copied to clipboard.', 2000);
+        return;
+      }
+      case 'setCollapseState': {
+        const stored = this.context.workspaceState.get<string[]>(COLLAPSED_KEY, []);
+        const set = new Set(stored);
+        if (message.payload.collapsed) set.add(message.payload.filePath);
+        else set.delete(message.payload.filePath);
+        // Cap to avoid unbounded growth as the user touches lots of files over time.
+        await this.context.workspaceState.update(
+          COLLAPSED_KEY,
+          Array.from(set).slice(-MAX_COLLAPSED),
+        );
         return;
       }
       case 'aiActionForFn': {

@@ -1,6 +1,9 @@
 import { promises as fs } from 'node:fs';
 import * as vscode from 'vscode';
 import { type BehaviorDiff, type Severity, diffBehavior } from '../behavior-diff/index.js';
+import { pickTopSeverity } from '../behavior-diff/severity.js';
+
+export { pickTopSeverity };
 import { findReferences } from '../impact/references.js';
 import { buildFunctionTable, languageFor } from '../parsers/router.js';
 import { diffFunctionTables, emptyTable } from '../parsers/typescript/diff-functions.js';
@@ -73,13 +76,6 @@ export const collectChanges = async (workspaceRoot: string): Promise<ChangeBatch
   }
 
   return { files, changes, added, removed };
-};
-
-export const pickTopSeverity = (severities: Severity[]): Severity => {
-  if (severities.includes('high')) return 'high';
-  if (severities.includes('medium')) return 'medium';
-  if (severities.includes('low')) return 'low';
-  return 'safe';
 };
 
 const readText = async (filePath: string): Promise<string | null> => {

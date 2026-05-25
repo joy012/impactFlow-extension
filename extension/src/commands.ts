@@ -50,6 +50,82 @@ export const registerCommands = (deps: CommandDeps) => {
     deps.ai.run('review', () => pickHighRiskFunction(deps.pipeline)),
   );
   reg('impactflow.ai.clearCache', () => deps.ai.clearCache());
+
+  reg('impactflow.jumpToFn', jumpToFnHandler(deps.pipeline));
+  reg('impactflow.cycleSeverity', cycleSeverityHandler());
+  reg('impactflow.showCallerTree', showCallerTreeHandler(deps.pipeline));
+};
+
+const showCallerTreeHandler = (pipeline: Pipeline) => async () => {
+  const entry = await pickFunction(pipeline);
+  if (!entry) return;
+  const { buildCallerTree, renderTreeMarkdown } = await import('./impact/tree.js');
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `ImpactFlow: caller tree for ${entry.fn.name}…`,
+      cancellable: true,
+    },
+    async (_p, token) => {
+      const tree = await buildCallerTree({
+        filePath: entry.filePath,
+        fnName: entry.fn.name,
+        startLine: entry.fn.line,
+        token,
+      });
+      if (token.isCancellationRequested) return;
+      const md = renderTreeMarkdown(tree, folder);
+      const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: md });
+      await vscode.window.showTextDocument(doc, { preview: true });
+    },
+  );
+};
+
+const jumpToFnHandler = (pipeline: Pipeline) => async () => {
+  const items = pipeline.currentModifiedFunctions();
+  if (items.length === 0) {
+    vscode.window.showInformationMessage(
+      'ImpactFlow: no modified functions in the current snapshot.',
+    );
+    return;
+  }
+  const picked = await vscode.window.showQuickPick(
+    items.map((it) => ({
+      label: it.fn.name,
+      description: `${it.fn.topSeverity ?? '–'} · risk ${it.fn.risk?.score?.toFixed(1) ?? '–'}`,
+      detail: shortenPath(it.filePath),
+      filePath: it.filePath,
+      line: it.fn.line,
+    })),
+    {
+      title: 'ImpactFlow — jump to a modified function',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    },
+  );
+  if (!picked) return;
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(picked.filePath));
+  const editor = await vscode.window.showTextDocument(doc, { preview: false });
+  const pos = new vscode.Position(Math.max(0, picked.line - 1), 0);
+  editor.selection = new vscode.Selection(pos, pos);
+  editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+};
+
+const SEVERITY_CYCLE: ReadonlyArray<'all' | 'low' | 'medium' | 'high'> = [
+  'all',
+  'low',
+  'medium',
+  'high',
+];
+
+const cycleSeverityHandler = () => async () => {
+  const cfg = vscode.workspace.getConfiguration('impactflow.severity');
+  const current = cfg.get<'all' | 'low' | 'medium' | 'high'>('show', 'medium');
+  const idx = SEVERITY_CYCLE.indexOf(current);
+  const next = SEVERITY_CYCLE[(idx + 1) % SEVERITY_CYCLE.length]!;
+  await cfg.update('show', next, vscode.ConfigurationTarget.Workspace);
+  vscode.window.setStatusBarMessage(`ImpactFlow severity → ${next}`, 1500);
 };
 
 // Quick Pick over the snapshot's modified functions. Returns a thunk that the
