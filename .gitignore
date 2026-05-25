@@ -11,6 +11,6 @@ coverage
 .cache
 .turbo
 .parcel-cache
-.docs
+docs/
 .omc
 .claude
