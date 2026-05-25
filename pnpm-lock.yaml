@@ -54,12 +54,18 @@ importers:
       tree-sitter-c-sharp:
         specifier: ^0.23.5
         version: 0.23.5
+      tree-sitter-cli:
+        specifier: ^0.26.9
+        version: 0.26.9
       tree-sitter-dart:
         specifier: ^1.0.0
         version: 1.0.0
       tree-sitter-elixir:
         specifier: ^0.3.5
         version: 0.3.5
+      tree-sitter-fsharp:
+        specifier: ^0.1.0
+        version: 0.1.0
       tree-sitter-go:
         specifier: ^0.25.0
         version: 0.25.0
@@ -75,6 +81,9 @@ importers:
       tree-sitter-php:
         specifier: ^0.24.2
         version: 0.24.2
+      tree-sitter-powershell:
+        specifier: ^0.26.4
+        version: 0.26.4
       tree-sitter-python:
         specifier: ^0.25.0
         version: 0.25.0
@@ -2708,6 +2717,11 @@ packages:
       tree-sitter:
         optional: true
 
+  tree-sitter-cli@0.26.9:
+    resolution: {integrity: sha512-7l+U1RmazPVe+yA/JiX80GFOILnL/j24GbawamIzNQC8UlINrcyECbaWGaG1wuq4j/m0DQTx7Uu4r0iW9Ao1BQ==}
+    engines: {node: '>=12.0.0'}
+    hasBin: true
+
   tree-sitter-dart@1.0.0:
     resolution: {integrity: sha512-Ve5YMPJjjGW9LEsO+MngAOibQsw5obFp+bUT41pvwdcXWRwJImOWs3eaPi6AubEiBmc09qvhdvxeIXvxlhMnug==}
 
@@ -2715,6 +2729,15 @@ packages:
     resolution: {integrity: sha512-xozQMvYK0aSolcQZAx2d84Xe/YMWFuRPYFlLVxO01bM2GITh5jyiIp0TqPCQa8754UzRAI7A83hZmfiYub5TZQ==}
     peerDependencies:
       tree-sitter: ^0.21.0
+
+  tree-sitter-fsharp@0.1.0:
+    resolution: {integrity: sha512-TCK+Jkg3qvEe4o6JxqUlE+vUc9lWhHhD7Toglu5Y04/PKa9DgACzqU5Jp9BYZnyhgGLEe+30kVOyFTY/iC/n1Q==}
+    peerDependencies:
+      tree-sitter: ^0.21.0
+      tree_sitter: '*'
+    peerDependenciesMeta:
+      tree_sitter:
+        optional: true
 
   tree-sitter-go@0.25.0:
     resolution: {integrity: sha512-APBc/Dq3xz/e35Xpkhb1blu5UgW+2E3RyGWawZSCNcbGwa7jhSQPS8KsUupuzBla8PCo8+lz9W/JDJjmfRa2tw==}
@@ -2760,6 +2783,14 @@ packages:
     resolution: {integrity: sha512-zwgAePc/HozNaWOOfwRAA+3p8yhuehRw8Fb7vn5qd2XjiIc93uJPryDTMYTSjBRjVIUg/KY6pM3rRzs8dSwKfw==}
     peerDependencies:
       tree-sitter: ^0.22.4
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-powershell@0.26.4:
+    resolution: {integrity: sha512-5RwNW/qN/cKArZY0znvTOG+OWSau7Agel5K0A8KQ5Nubw/4SyZ5KC02RKCaYcA2ur5UQ8esyxe9+6yXup2MXkw==}
+    peerDependencies:
+      tree-sitter: ^0.25.0
     peerDependenciesMeta:
       tree-sitter:
         optional: true
@@ -5592,6 +5623,8 @@ snapshots:
       node-addon-api: 8.8.0
       node-gyp-build: 4.8.4
 
+  tree-sitter-cli@0.26.9: {}
+
   tree-sitter-dart@1.0.0:
     dependencies:
       nan: 2.27.0
@@ -5599,6 +5632,11 @@ snapshots:
   tree-sitter-elixir@0.3.5:
     dependencies:
       node-addon-api: 7.1.1
+      node-gyp-build: 4.8.4
+
+  tree-sitter-fsharp@0.1.0:
+    dependencies:
+      node-addon-api: 8.8.0
       node-gyp-build: 4.8.4
 
   tree-sitter-go@0.25.0:
@@ -5628,6 +5666,11 @@ snapshots:
       tree-sitter-c: 0.23.6
 
   tree-sitter-php@0.24.2:
+    dependencies:
+      node-addon-api: 8.8.0
+      node-gyp-build: 4.8.4
+
+  tree-sitter-powershell@0.26.4:
     dependencies:
       node-addon-api: 8.8.0
       node-gyp-build: 4.8.4

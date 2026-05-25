@@ -28,5 +28,11 @@ beforeAll(async () => {
     'objc',
     'lua',
     'elixir',
+    'powershell',
+    'fsharp',
+    'dart',
+    'swift',
+    'r',
+    'gdscript',
   ]);
 });

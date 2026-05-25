@@ -35,6 +35,8 @@ const targets = [
     'tree-sitter-kotlin.wasm',
     'tree-sitter-kotlin.wasm',
   ],
+  ['tree-sitter-powershell', 'tree-sitter-powershell.wasm', 'tree-sitter-powershell.wasm'],
+  ['tree-sitter-fsharp', 'tree-sitter-fsharp.wasm', 'tree-sitter-fsharp.wasm'],
 ];
 
 for (const [pkg, relPath, outName] of targets) {
@@ -50,4 +52,25 @@ for (const [pkg, relPath, outName] of targets) {
   }
   copyFileSync(src, join(outDir, outName));
   console.log(`[copy-grammars] ${pkg} → dist/grammars/${outName}`);
+}
+
+// Vendored grammars: built in-house with tree-sitter CLI + emscripten because
+// their upstream npm packages either don't ship WASM or ship one incompatible
+// with web-tree-sitter ≥ 0.26. Sources: github.com/r-lib/tree-sitter-r,
+// UserNobody14/tree-sitter-dart, alex-pinkus/tree-sitter-swift, PrestonKnopp/tree-sitter-gdscript.
+const vendorDir = resolve(__dirname, '..', 'vendor', 'grammars');
+const vendored = [
+  'tree-sitter-dart.wasm',
+  'tree-sitter-swift.wasm',
+  'tree-sitter-r.wasm',
+  'tree-sitter-gdscript.wasm',
+];
+for (const file of vendored) {
+  const src = join(vendorDir, file);
+  if (!existsSync(src)) {
+    console.error(`[copy-grammars] missing vendored ${src}`);
+    process.exit(1);
+  }
+  copyFileSync(src, join(outDir, file));
+  console.log(`[copy-grammars] vendor → dist/grammars/${file}`);
 }

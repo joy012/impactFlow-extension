@@ -1,0 +1,8 @@
+{
+  "language": "dart",
+  "title": "Flutter callback gains setState() — UI mutation introduced",
+  "before": "void onTap() { counter++; }",
+  "after": "void onTap() { setState(() { counter++; }); }",
+  "expectedDiffs": ["call_set", "side_effect_surface"],
+  "shouldNotEmit": ["signature", "return_shape", "asyncness"]
+}

@@ -1,0 +1,8 @@
+{
+  "language": "java",
+  "title": "Method signature gains a throws clause + actual throw site",
+  "before": "public class FileReader { public String read(String path) { return Files.readString(Paths.get(path)); } }",
+  "after": "public class FileReader { public String read(String path) throws IOException { if (!Files.exists(Paths.get(path))) throw new FileNotFoundException(path); return Files.readString(Paths.get(path)); } }",
+  "expectedDiffs": ["signature", "branch_logic", "throw_set"],
+  "shouldNotEmit": ["asyncness"]
+}

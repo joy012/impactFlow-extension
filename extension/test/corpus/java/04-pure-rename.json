@@ -1,0 +1,18 @@
+{
+  "language": "java",
+  "title": "Local variable rename — should not emit any diff",
+  "before": "public class Math { public int sum(int[] xs) { int total = 0; for (int x : xs) total += x; return total; } }",
+  "after": "public class Math { public int sum(int[] xs) { int acc = 0; for (int x : xs) acc += x; return acc; } }",
+  "expectedDiffs": [],
+  "shouldNotEmit": [
+    "signature",
+    "call_set",
+    "return_shape",
+    "branch_logic",
+    "throw_set",
+    "side_effect_surface",
+    "asyncness",
+    "stale_doc",
+    "complexity_jump"
+  ]
+}

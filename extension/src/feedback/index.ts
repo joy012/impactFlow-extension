@@ -33,7 +33,7 @@ export async function submitFeedback(
   const env = includeEnv ? collectEnv(context) : undefined;
   const body = buildBody(payload, env);
 
-  if (!WEB3FORMS_ACCESS_KEY || WEB3FORMS_ACCESS_KEY.startsWith('REPLACE_')) {
+  if (!WEB3FORMS_ACCESS_KEY) {
     logger.warn('Feedback endpoint access_key not configured; falling back to GitHub.');
     return githubFallback(payload, githubUrl, 'access_key not configured');
   }

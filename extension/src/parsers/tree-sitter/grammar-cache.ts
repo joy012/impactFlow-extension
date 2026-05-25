@@ -17,12 +17,18 @@ export type GrammarName =
   | 'scala'
   | 'objc'
   | 'lua'
-  | 'elixir';
+  | 'elixir'
+  | 'powershell'
+  | 'fsharp'
+  | 'dart'
+  | 'swift'
+  | 'r'
+  | 'gdscript';
 
-// We preload all supported grammars at activation/test setup (~14). MAX_RESIDENT
+// We preload all supported grammars at activation/test setup (20). MAX_RESIDENT
 // is the cap for any single eviction pass; we set it above the preload count so
 // LRU eviction stays a no-op in normal sessions.
-const MAX_RESIDENT = 16;
+const MAX_RESIDENT = 24;
 
 const FILENAME: Record<GrammarName, string> = {
   python: 'tree-sitter-python.wasm',
@@ -39,6 +45,12 @@ const FILENAME: Record<GrammarName, string> = {
   objc: 'tree-sitter-objc.wasm',
   lua: 'tree-sitter-lua.wasm',
   elixir: 'tree-sitter-elixir.wasm',
+  powershell: 'tree-sitter-powershell.wasm',
+  fsharp: 'tree-sitter-fsharp.wasm',
+  dart: 'tree-sitter-dart.wasm',
+  swift: 'tree-sitter-swift.wasm',
+  r: 'tree-sitter-r.wasm',
+  gdscript: 'tree-sitter-gdscript.wasm',
 };
 
 const cache = new Map<GrammarName, Language>();

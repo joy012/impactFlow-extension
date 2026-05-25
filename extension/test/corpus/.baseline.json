@@ -1,73 +1,73 @@
 {
   "perDetector": {
     "signature": {
-      "tp": 2,
+      "tp": 4,
       "fp": 0,
-      "fn": 0,
+      "fn": 1,
       "precision": 1,
-      "recall": 1
+      "recall": 0.8
     },
     "asyncness": {
-      "tp": 2,
+      "tp": 5,
       "fp": 0,
       "fn": 0,
       "precision": 1,
       "recall": 1
     },
     "return_shape": {
-      "tp": 3,
-      "fp": 2,
+      "tp": 5,
+      "fp": 6,
+      "fn": 0,
+      "precision": 0.45454545454545453,
+      "recall": 1
+    },
+    "branch_logic": {
+      "tp": 6,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8571428571428571
+    },
+    "call_set": {
+      "tp": 6,
+      "fp": 4,
       "fn": 0,
       "precision": 0.6,
       "recall": 1
     },
-    "branch_logic": {
+    "throw_set": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 2,
+      "precision": 1,
+      "recall": 0.6
+    },
+    "side_effect_surface": {
+      "tp": 5,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.8333333333333334,
+      "recall": 1
+    },
+    "stale_doc": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
       "precision": 1,
       "recall": 1
     },
-    "call_set": {
-      "tp": 2,
-      "fp": 1,
-      "fn": 0,
-      "precision": 0.6666666666666666,
-      "recall": 1
-    },
-    "throw_set": {
-      "tp": 2,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1,
-      "recall": 1
-    },
-    "side_effect_surface": {
-      "tp": 2,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1,
-      "recall": 1
-    },
-    "stale_doc": {
-      "tp": 0,
-      "fp": 0,
-      "fn": 0,
-      "precision": null,
-      "recall": null
-    },
     "complexity_jump": {
-      "tp": 0,
+      "tp": 2,
       "fp": 0,
       "fn": 0,
-      "precision": null,
-      "recall": null
+      "precision": 1,
+      "recall": 1
     }
   },
   "overall": {
-    "precision": 0.8235294117647058,
-    "recall": 1,
+    "precision": 0.7708333333333334,
+    "recall": 0.9024390243902439,
     "fpRate": 0,
-    "shouldNotEmitCases": 2
+    "shouldNotEmitCases": 3
   }
 }

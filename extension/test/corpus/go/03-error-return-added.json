@@ -1,0 +1,8 @@
+{
+  "language": "go",
+  "title": "Function signature gains an error return + new throw site",
+  "before": "func Lookup(id string) string { return cache[id] }",
+  "after": "func Lookup(id string) (string, error) { v, ok := cache[id]; if !ok { return \"\", fmt.Errorf(\"not found: %s\", id) }; return v, nil }",
+  "expectedDiffs": ["signature", "return_shape", "branch_logic", "throw_set"],
+  "shouldNotEmit": ["asyncness"]
+}

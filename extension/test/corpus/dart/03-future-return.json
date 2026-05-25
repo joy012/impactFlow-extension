@@ -1,0 +1,8 @@
+{
+  "language": "dart",
+  "title": "Sync function becomes async Future<User>",
+  "before": "User loadUser(String uid) { return cache[uid]!; }",
+  "after": "Future<User> loadUser(String uid) async { final u = cache[uid]; if (u != null) return u; return await db.get(uid); }",
+  "expectedDiffs": ["signature", "asyncness", "branch_logic", "call_set"],
+  "shouldNotEmit": ["throw_set"]
+}

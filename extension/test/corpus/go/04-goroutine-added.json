@@ -1,0 +1,8 @@
+{
+  "language": "go",
+  "title": "Synchronous work spawned into a goroutine (background mutation)",
+  "before": "func Notify(user User) { sendEmail(user) }",
+  "after": "func Notify(user User) { go sendEmail(user) }",
+  "expectedDiffs": ["asyncness"],
+  "shouldNotEmit": ["signature", "return_shape"]
+}

@@ -32,6 +32,12 @@ const PRELOAD_GRAMMARS = [
   'objc',
   'lua',
   'elixir',
+  'powershell',
+  'fsharp',
+  'dart',
+  'swift',
+  'r',
+  'gdscript',
 ] as const;
 
 let pipeline: Pipeline | undefined;
@@ -42,6 +48,10 @@ let decorations: InlineDecorations | undefined;
 let engineRouter: WorkspaceEngineRouter | undefined;
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
+  // Mark first so diagnostics deltas are honest.
+  const { markActivation } = await import('./diagnostics.js');
+  markActivation();
+
   logger.init(context);
   telemetry.init(context);
   telemetry.send({ name: 'extension.activated', props: { vscodeVersion: vscode.version } });

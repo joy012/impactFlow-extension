@@ -1,0 +1,8 @@
+{
+  "language": "python",
+  "title": "Synchronous fetch becomes async with httpx",
+  "before": "def fetch_user(uid):\n    return requests.get(f'/users/{uid}').json()",
+  "after": "async def fetch_user(uid):\n    async with httpx.AsyncClient() as c:\n        r = await c.get(f'/users/{uid}')\n    return r.json()",
+  "expectedDiffs": ["asyncness", "call_set", "side_effect_surface"],
+  "shouldNotEmit": ["signature"]
+}

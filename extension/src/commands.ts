@@ -28,7 +28,7 @@ export const registerCommands = (deps: CommandDeps) => {
   reg('impactflow.sendFeedback', () => deps.provider.showFeedback('general'));
   reg('impactflow.reportBug', () => deps.provider.showFeedback('bug'));
   reg('impactflow.requestFeature', () => deps.provider.showFeedback('feature'));
-  reg('impactflow.showPerf', showPerfHandler(deps.pipeline));
+  reg('impactflow.showPerf', showPerfHandler(deps));
   reg('impactflow.resetBaseline', resetBaselineHandler(deps.pipeline));
   reg('impactflow.findDeadCode', findDeadCodeHandler());
   reg('impactflow.cleanupDeadCode', cleanupDeadCodeHandler());
@@ -262,12 +262,14 @@ const summarizeStagedHandler = () => async () => {
   );
 };
 
-const showPerfHandler = (pipeline: Pipeline) => () => {
-  const s = pipeline.perfStats();
-  vscode.window.showInformationMessage(
-    `ImpactFlow perf — samples=${s.samples}, last=${fmt(s.last)}ms, p50=${fmt(s.p50)}ms, p95=${fmt(s.p95)}ms`,
-  );
-};
+const showPerfHandler =
+  ({ pipeline }: CommandDeps) =>
+  async () => {
+    const { renderDiagnostics } = await import('./diagnostics.js');
+    const md = renderDiagnostics(pipeline);
+    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: md });
+    await vscode.window.showTextDocument(doc, { preview: true });
+  };
 
 const resetBaselineHandler = (pipeline: Pipeline) => async () => {
   try {
@@ -449,5 +451,3 @@ const shortenPath = (abs: string): string => {
   if (folder && abs.startsWith(folder)) return abs.slice(folder.length + 1);
   return abs;
 };
-
-const fmt = (n: number | null): string => (n == null ? '–' : n.toFixed(1));

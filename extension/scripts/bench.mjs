@@ -80,7 +80,28 @@ async function main() {
   // Tree-sitter setup: point at dist/grammars and pre-load the grammars the
   // corpus exercises. buildFunctionTable() is sync; the async load happens once.
   setGrammarRoot(resolve(extensionRoot, 'dist', 'grammars'));
-  await prepareGrammars(['python', 'typescript', 'tsx', 'javascript']);
+  await prepareGrammars([
+    'python',
+    'typescript',
+    'tsx',
+    'javascript',
+    'go',
+    'java',
+    'kotlin',
+    'rust',
+    'csharp',
+    'php',
+    'scala',
+    'objc',
+    'lua',
+    'elixir',
+    'powershell',
+    'fsharp',
+    'dart',
+    'swift',
+    'r',
+    'gdscript',
+  ]);
 
   const cases = walkCorpus(corpusRoot);
   if (cases.length === 0) {

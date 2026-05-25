@@ -1,0 +1,8 @@
+{
+  "language": "python",
+  "title": "Body changes (added retry loop) but docstring is not updated",
+  "before": "def get(url):\n    \"\"\"Return the response body as text.\"\"\"\n    return requests.get(url).text",
+  "after": "def get(url):\n    \"\"\"Return the response body as text.\"\"\"\n    for attempt in range(3):\n        try:\n            return requests.get(url, timeout=5).text\n        except requests.RequestException:\n            if attempt == 2:\n                raise",
+  "expectedDiffs": ["branch_logic", "throw_set", "stale_doc", "complexity_jump"],
+  "shouldNotEmit": ["signature", "asyncness"]
+}

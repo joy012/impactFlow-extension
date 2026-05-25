@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "title": "Function adds a new fetch() call (network effect introduced)",
+  "before": "async function load(id: string) { return cache.get(id); }",
+  "after": "async function load(id: string) { return cache.get(id) ?? (await fetch(`/api/${id}`)).json(); }",
+  "expectedDiffs": ["call_set", "branch_logic", "side_effect_surface"],
+  "shouldNotEmit": ["signature", "asyncness"]
+}
