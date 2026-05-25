@@ -1,13 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
-import { buildAiPrompt } from './ai-prompt.js';
 import { submitFeedback } from './feedback/index.js';
 import { isGitRepo } from './git-detect.js';
 import { logger } from './logger.js';
 import type { Pipeline } from './pipeline.js';
 import type {
   FeedbackPayload,
-  FnSummary,
   HostToWebviewMessage,
   WebviewToHostMessage,
 } from './shared/messages.js';
@@ -17,7 +15,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'impactflow.sidePanel';
   private view: vscode.WebviewView | undefined;
   private snapshotDisposable: vscode.Disposable | undefined;
-  private lastFnIndex = new Map<string, { fn: FnSummary; filePath: string }>();
+  private progressDisposable: vscode.Disposable | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -46,16 +44,17 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     this.snapshotDisposable?.dispose();
     this.snapshotDisposable = this.pipeline.onSnapshot((snap) => {
-      // Index by fn id for command-driven lookups (AI prompt, dismiss, etc.).
-      this.lastFnIndex.clear();
-      for (const f of snap.files) {
-        for (const m of f.modified) this.lastFnIndex.set(m.id, { fn: m, filePath: f.path });
-      }
       this.post({ type: 'analysisUpdate', payload: snap });
+    });
+    this.progressDisposable?.dispose();
+    this.progressDisposable = this.pipeline.onProgress((p) => {
+      this.post({ type: 'progress', payload: p });
     });
     webviewView.onDidDispose(() => {
       this.snapshotDisposable?.dispose();
       this.snapshotDisposable = undefined;
+      this.progressDisposable?.dispose();
+      this.progressDisposable = undefined;
     });
 
     this.post({ type: 'init', payload: this.initPayload() });
@@ -116,17 +115,6 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       case 'copyToClipboard': {
         await vscode.env.clipboard.writeText(message.payload.text);
         vscode.window.setStatusBarMessage(message.payload.toast ?? 'Copied to clipboard.', 2000);
-        return;
-      }
-      case 'aiPromptForFn': {
-        const entry = this.lastFnIndex.get(message.payload.fnId);
-        if (!entry) {
-          vscode.window.showInformationMessage('ImpactFlow: function no longer in the snapshot.');
-          return;
-        }
-        const prompt = buildAiPrompt(entry.fn, entry.filePath);
-        await vscode.env.clipboard.writeText(prompt);
-        vscode.window.setStatusBarMessage('ImpactFlow: AI prompt copied to clipboard.', 2500);
         return;
       }
       case 'revealFunction': {

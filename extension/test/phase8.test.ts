@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildAiPrompt } from '../src/ai-prompt.js';
 import { extractFacts } from '../src/behavior-diff/facts.js';
 import { diffBehavior } from '../src/behavior-diff/index.js';
 import type { FnEntry } from '../src/parsers/typescript/function-table.js';
-import type { FnSummary } from '../src/shared/messages.js';
 
 function fn(name: string, fullText: string, doc = ''): FnEntry {
   return {
@@ -95,35 +93,5 @@ describe('FnFacts.complexity', () => {
     );
     // 1 base + 2 ifs + 1 && + 1 || = 5
     expect(facts.complexity).toBeGreaterThanOrEqual(4);
-  });
-});
-
-describe('F11 AI prompt template', () => {
-  it('renders sections only when data is present', () => {
-    const minimal: FnSummary = {
-      id: '/v::f',
-      name: 'f',
-      kind: 'function',
-      line: 10,
-      diffs: [{ type: 'signature', severity: 'high', description: 'param added', confidence: 0.9 }],
-    };
-    const prompt = buildAiPrompt(minimal, '/repo/src/foo.ts');
-    expect(prompt).toContain('I changed `f`');
-    expect(prompt).toContain('signature');
-    expect(prompt).not.toContain('Tests that exercise');
-  });
-
-  it('includes test list when impactedTests present', () => {
-    const withTests: FnSummary = {
-      id: '/v::f',
-      name: 'f',
-      kind: 'function',
-      line: 10,
-      diffs: [],
-      impactedTests: [{ filePath: '/repo/src/foo.test.ts', line: 5, sameFile: false }],
-    };
-    const prompt = buildAiPrompt(withTests, '/repo/src/foo.ts');
-    expect(prompt).toContain('Tests that exercise this function');
-    expect(prompt).toContain('foo.test.ts:5');
   });
 });

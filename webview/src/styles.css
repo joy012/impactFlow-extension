@@ -58,3 +58,30 @@ button {
   font: inherit;
   cursor: pointer;
 }
+
+/* Progress bar — shimmer for indeterminate work, pulse for the status dot. */
+@keyframes impactflow-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.impactflow-progress-shimmer {
+  animation: impactflow-progress-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes impactflow-progress-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--color-accent);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+.impactflow-progress-pulse {
+  animation: impactflow-progress-pulse 1.3s ease-in-out infinite;
+}

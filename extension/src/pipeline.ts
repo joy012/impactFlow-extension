@@ -13,10 +13,16 @@ import { buildFunctionTable, languageFor } from './parsers/router.js';
 import { diffFunctionTables, emptyTable } from './parsers/typescript/diff-functions.js';
 import type { FnEntry } from './parsers/typescript/function-table.js';
 import { computeRisk } from './risk/formula.js';
-import type { AnalysisFileSnapshot, AnalysisSnapshot, FnSummary } from './shared/messages.js';
+import type {
+  AnalysisFileSnapshot,
+  AnalysisSnapshot,
+  FnSummary,
+  ProgressPayload,
+} from './shared/messages.js';
 import type { FeedbackStore } from './storage/feedback-store.js';
 
 export type SnapshotListener = (snap: AnalysisSnapshot) => void;
+export type ProgressListener = (progress: ProgressPayload) => void;
 
 const MAX_FILE_SNAPSHOTS = 200;
 const PERF_SAMPLE_CAP = 50;
@@ -24,6 +30,7 @@ const PERF_SAMPLE_CAP = 50;
 export class Pipeline {
   private fileSnapshots = new Map<string, AnalysisFileSnapshot>();
   private listeners = new Set<SnapshotListener>();
+  private progressListeners = new Set<ProgressListener>();
   private perfSamples: Array<{ filePath: string; durationMs: number; at: number }> = [];
 
   constructor(
@@ -46,20 +53,43 @@ export class Pipeline {
     return { dispose: () => this.listeners.delete(listener) };
   }
 
+  onProgress(listener: ProgressListener): vscode.Disposable {
+    this.progressListeners.add(listener);
+    return { dispose: () => this.progressListeners.delete(listener) };
+  }
+
+  private emitProgress(p: ProgressPayload): void {
+    for (const l of this.progressListeners) {
+      try {
+        l(p);
+      } catch (err) {
+        logger.error('Progress listener threw', err);
+      }
+    }
+  }
+
   // G3 — accepts a cancellation token so commands can interrupt long passes.
   async analyzeOpenDocuments(token?: vscode.CancellationToken): Promise<void> {
-    for (const doc of vscode.workspace.textDocuments) {
-      if (token?.isCancellationRequested) break;
-      if (doc.uri.scheme !== 'file') continue;
-      if (!languageFor(doc.uri.fsPath)) continue;
-      await this.analyzeOne(doc.uri.fsPath);
+    try {
+      for (const doc of vscode.workspace.textDocuments) {
+        if (token?.isCancellationRequested) break;
+        if (doc.uri.scheme !== 'file') continue;
+        if (!languageFor(doc.uri.fsPath)) continue;
+        await this.analyzeOne(doc.uri.fsPath);
+      }
+      this.emit();
+    } finally {
+      this.emitProgress({ active: false, phase: 'idle' });
     }
-    this.emit();
   }
 
   async handleChange(n: ChangeNotification): Promise<void> {
-    await this.analyzeOne(n.filePath);
-    this.emit();
+    try {
+      await this.analyzeOne(n.filePath);
+      this.emit();
+    } finally {
+      this.emitProgress({ active: false, phase: 'idle' });
+    }
   }
 
   perfStats(): { samples: number; p50: number; p95: number; last: number | null } {
@@ -82,6 +112,8 @@ export class Pipeline {
 
   private async analyzeOne(filePath: string): Promise<void> {
     const t0 = performance.now();
+    const fileLabel = filePath.split(/[\\/]/).slice(-1)[0] ?? filePath;
+    this.emitProgress({ active: true, phase: 'parsing', detail: fileLabel });
     try {
       if (isExcluded(filePath)) {
         this.fileSnapshots.delete(filePath);
@@ -106,6 +138,7 @@ export class Pipeline {
         ? buildFunctionTable(filePath, baselineText)
         : emptyTable(filePath);
       const afterTable = buildFunctionTable(filePath, currentText);
+      this.emitProgress({ active: true, phase: 'diffing', detail: fileLabel });
       const diff = diffFunctionTables(beforeTable, afterTable);
 
       const modifiedTasks = diff.modified
@@ -122,6 +155,9 @@ export class Pipeline {
 
       void this.hotspot?.refresh(filePath);
 
+      if (modifiedTasks.length > 0) {
+        this.emitProgress({ active: true, phase: 'references', detail: fileLabel });
+      }
       const allModified: FnSummary[] = await Promise.all(
         modifiedTasks.map((m) => this.buildFnSummary(filePath, m)),
       );

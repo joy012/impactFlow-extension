@@ -330,20 +330,7 @@ function FnRow({
               {fn.risk.explanation.join(' · ')}
             </div>
           )}
-          <div className="mt-1 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() =>
-                getVsCode().postMessage({
-                  type: 'aiPromptForFn',
-                  payload: { fnId: fn.id },
-                })
-              }
-              className="text-link text-[10px] hover:underline"
-              title="Copy an AI prompt describing this change"
-            >
-              ✨ copy AI prompt
-            </button>
+          <div className="mt-1 flex items-center justify-end">
             <button
               type="button"
               onClick={() =>

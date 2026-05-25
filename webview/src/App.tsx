@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from './components/EmptyState.js';
 import { FeedbackForm } from './components/FeedbackForm.js';
+import { ProgressBar } from './components/ProgressBar.js';
 import { SidePanel } from './components/SidePanel.js';
 import type {
   AnalysisSnapshot,
   FeedbackResult,
   FeedbackType,
   InitPayload,
+  ProgressPayload,
 } from './shared/messages.js';
 import { getVsCode, onHostMessage } from './vscode.js';
 
@@ -18,6 +20,9 @@ export function App() {
   const [tab, setTab] = useState<Tab>('panel');
   const [feedbackPrefill, setFeedbackPrefill] = useState<FeedbackType>('general');
   const [feedbackResult, setFeedbackResult] = useState<FeedbackResult | undefined>();
+  const [progress, setProgress] = useState<ProgressPayload | undefined>();
+  // Debounce the "active=false" transition so short bursts don't flash.
+  const inactiveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const off = onHostMessage((msg) => {
@@ -36,10 +41,28 @@ export function App() {
         case 'analysisUpdate':
           setSnapshot(msg.payload);
           break;
+        case 'progress':
+          if (msg.payload.active) {
+            if (inactiveTimer.current) {
+              window.clearTimeout(inactiveTimer.current);
+              inactiveTimer.current = undefined;
+            }
+            setProgress(msg.payload);
+          } else {
+            // Hold the bar for 250ms so user actually sees it on quick passes.
+            inactiveTimer.current = window.setTimeout(() => {
+              setProgress({ active: false, phase: 'idle' });
+              inactiveTimer.current = undefined;
+            }, 250);
+          }
+          break;
       }
     });
     getVsCode().postMessage({ type: 'ready' });
-    return off;
+    return () => {
+      off();
+      if (inactiveTimer.current) window.clearTimeout(inactiveTimer.current);
+    };
   }, []);
 
   const fileCount = snapshot?.files.length ?? 0;
@@ -71,6 +94,8 @@ export function App() {
           </TabButton>
         </nav>
       </header>
+
+      <ProgressBar progress={progress} />
 
       <main className="min-h-0 flex-1 overflow-auto">
         {tab === 'panel' ? (

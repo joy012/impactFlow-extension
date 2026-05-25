@@ -105,12 +105,30 @@ export interface AnalysisSnapshot {
   durationMs: number;
 }
 
+export type ProgressPhase =
+  | 'parsing'
+  | 'diffing'
+  | 'references'
+  | 'risk'
+  | 'rendering'
+  | 'idle';
+
+export interface ProgressPayload {
+  active: boolean;
+  phase: ProgressPhase;
+  /** Short label shown next to the spinner (e.g. file basename, fn name). */
+  detail?: string;
+  /** 0..1 if known; undefined for indeterminate work. */
+  progress?: number;
+}
+
 /* host → webview */
 export type HostToWebviewMessage =
   | { type: 'init'; payload: InitPayload }
   | { type: 'showFeedback'; payload: { prefillType: FeedbackType } }
   | { type: 'feedbackResult'; payload: FeedbackResult }
-  | { type: 'analysisUpdate'; payload: AnalysisSnapshot };
+  | { type: 'analysisUpdate'; payload: AnalysisSnapshot }
+  | { type: 'progress'; payload: ProgressPayload };
 
 /* webview → host */
 export type WebviewToHostMessage =
@@ -120,5 +138,4 @@ export type WebviewToHostMessage =
   | { type: 'runCommand'; payload: { command: string } }
   | { type: 'revealFunction'; payload: { filePath: string; line: number } }
   | { type: 'dismissFinding'; payload: { fnId: string; reason?: string } }
-  | { type: 'copyToClipboard'; payload: { text: string; toast?: string } }
-  | { type: 'aiPromptForFn'; payload: { fnId: string } };
+  | { type: 'copyToClipboard'; payload: { text: string; toast?: string } };

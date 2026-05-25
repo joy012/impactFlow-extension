@@ -32,7 +32,10 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
   setGrammarRoot(join(context.extensionUri.fsPath, 'dist', 'grammars'));
   try {
-    await prepareGrammars(['python', 'typescript', 'tsx', 'javascript']);
+    await prepareGrammars([
+      'python', 'typescript', 'tsx', 'javascript',
+      'go', 'java', 'kotlin', 'rust', 'csharp', 'php', 'scala', 'objc', 'lua', 'elixir',
+    ]);
   } catch (err) {
     logger.error(`tree-sitter grammar load failed: ${(err as Error).message}`);
     // Continue activation; per-file analysis will surface errors individually.
