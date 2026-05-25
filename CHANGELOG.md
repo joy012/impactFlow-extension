@@ -5,6 +5,13 @@ All notable changes to ImpactFlow are documented here. Follows [Keep a Changelog
 ## [Unreleased]
 
 ### Added
+- **AI integration (BYOK)** via `vscode.lm` Language Model API — the user picks their model in VS Code settings (Copilot, custom Anthropic/OpenAI providers, local Ollama). Extension never sees an API key.
+  - 4 new commands: `AI: Explain Change`, `AI: Suggest Tests`, `AI: Review High-Risk Change`, `AI: Clear Response Cache`
+  - 6 new settings: `impactflow.ai.enable` (default off), `preferredModel`, `cacheTtlHours`, `maxPromptTokens`, `maxResponseTokens`, `rateLimitSeconds`
+  - Token-aware: LRU cache (100 entries × 24 h default) keyed by `fnId + bodyHash + kind`, rate limiter (1 call / fn / 60 s), prompt cap (2 k tokens), response cap (1 k tokens)
+  - Streams responses live into a markdown preview tab; cancellable via VS Code's progress UI
+  - Quick Pick over the snapshot's modified functions if no function is in focus
+  - 10 unit tests covering cache TTL/LRU, rate limiter, prompt builders
 - **Tree-sitter for 13 languages** — TypeScript / JavaScript / TSX / JSX / Python / Go / Java / Kotlin / Rust / C# / PHP / Scala / Elixir / Lua / Objective-C. Bundle dropped `ts-morph` (~5 MB) in exchange for the WASM grammars. 6 languages (Dart, Swift, F#, R, GDScript, PowerShell) remain on regex parsers because no maintained `web-tree-sitter ≥ 0.26`-compatible WASM exists for them.
 - **Multi-root workspace routing** — new `WorkspaceEngineRouter` keeps a `HotspotEngine` / `LastTouchedEngine` / `CoverageEngine` per workspace folder and routes by file path (audit B6).
 - **Animated progress UI** in the side panel — phase bar (`parsing → diffing → references → risk → rendering`) + shimmer + pulsing status dot, debounced so short bursts still register visually.
@@ -22,6 +29,7 @@ All notable changes to ImpactFlow are documented here. Follows [Keep a Changelog
 - Walkthrough markdown rewritten for clarity (audit N1).
 
 ### Changed
+- **Shortened all command titles** for a cleaner palette experience: `Analyze Changes Now` → `Analyze`, `Toggle Focus Mode` → `Focus Mode`, `Cleanup Dead Code (preview + apply)` → `Clean Dead Code`, `Show Performance Diagnostics` → `Perf Diagnostics`, `Install Pre-Commit Hook (warn)` → `Install Hook (warn)`, etc. `ImpactFlow:` category prefix kept for brand recognition.
 - Code style pass: stripped JSDoc blocks across all extension source files; kept inline `// why` comments only where the reasoning isn't obvious. All exported functions converted to arrow consts; no default exports anywhere.
 - `parsers/router.ts` refactored into a registry pattern — `EXTENSIONS` regex table + `ADAPTERS` record replace the 19-arm switch statements.
 - `Pipeline.analyzeOpenDocuments` accepts a `CancellationToken` (audit G3); `analyzeNow` + `summarizeStaged` commands thread one through `withProgress`.

@@ -43,44 +43,22 @@
       ]
     },
     "commands": [
-      {
-        "command": "impactflow.analyzeNow",
-        "title": "Analyze Changes Now",
-        "category": "ImpactFlow"
-      },
+      { "command": "impactflow.analyzeNow", "title": "Analyze", "category": "ImpactFlow" },
       {
         "command": "impactflow.summarizeStaged",
-        "title": "Summarize Staged Changes",
+        "title": "Summarize Staged",
         "category": "ImpactFlow"
       },
       {
-        "command": "impactflow.sendFeedback",
-        "title": "Send Feedback",
+        "command": "impactflow.compareBranches",
+        "title": "Compare Branches",
         "category": "ImpactFlow"
       },
+      { "command": "impactflow.toggleFocusMode", "title": "Focus Mode", "category": "ImpactFlow" },
+      { "command": "impactflow.findDeadCode", "title": "Find Dead Code", "category": "ImpactFlow" },
       {
-        "command": "impactflow.reportBug",
-        "title": "Report a Bug",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.requestFeature",
-        "title": "Request a Feature",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.showPerf",
-        "title": "Show Performance Diagnostics",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.resetBaseline",
-        "title": "Reset Baseline",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.findDeadCode",
-        "title": "Find Dead Code",
+        "command": "impactflow.cleanupDeadCode",
+        "title": "Clean Dead Code",
         "category": "ImpactFlow"
       },
       {
@@ -89,48 +67,62 @@
         "category": "ImpactFlow"
       },
       {
-        "command": "impactflow.compareBranches",
-        "title": "Compare Branches",
+        "command": "impactflow.draftCommitMessage",
+        "title": "Draft Commit Msg",
         "category": "ImpactFlow"
       },
-      {
-        "command": "impactflow.cleanupDeadCode",
-        "title": "Cleanup Dead Code (preview + apply)",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.toggleFocusMode",
-        "title": "Toggle Focus Mode",
-        "category": "ImpactFlow"
-      },
+      { "command": "impactflow.draftPrDescription", "title": "Draft PR", "category": "ImpactFlow" },
       {
         "command": "impactflow.installPreCommit",
-        "title": "Install Pre-Commit Hook (warn)",
+        "title": "Install Hook (warn)",
         "category": "ImpactFlow"
       },
       {
         "command": "impactflow.installPreCommitBlock",
-        "title": "Install Pre-Commit Hook (block)",
+        "title": "Install Hook (block)",
         "category": "ImpactFlow"
       },
       {
         "command": "impactflow.uninstallPreCommit",
-        "title": "Uninstall Pre-Commit Hook",
+        "title": "Uninstall Hook",
         "category": "ImpactFlow"
       },
       {
-        "command": "impactflow.draftCommitMessage",
-        "title": "Draft Commit Message",
-        "category": "ImpactFlow"
-      },
-      {
-        "command": "impactflow.draftPrDescription",
-        "title": "Draft PR Description",
+        "command": "impactflow.resetBaseline",
+        "title": "Reset Baseline",
         "category": "ImpactFlow"
       },
       {
         "command": "impactflow.resetDismissals",
         "title": "Reset Dismissals",
+        "category": "ImpactFlow"
+      },
+      { "command": "impactflow.showPerf", "title": "Perf Diagnostics", "category": "ImpactFlow" },
+      { "command": "impactflow.sendFeedback", "title": "Send Feedback", "category": "ImpactFlow" },
+      { "command": "impactflow.reportBug", "title": "Report Bug", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.requestFeature",
+        "title": "Request Feature",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.explainChange",
+        "title": "AI: Explain Change",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.suggestTests",
+        "title": "AI: Suggest Tests",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.reviewHighRisk",
+        "title": "AI: Review High-Risk Change",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.clearCache",
+        "title": "AI: Clear Response Cache",
         "category": "ImpactFlow"
       }
     ],
@@ -257,13 +249,43 @@
         "impactflow.notify.webhookUrl": {
           "type": "string",
           "default": "",
-          "description": "Optional HTTPS webhook. POSTed when a HIGH-severity diff lands. No source in payload."
+          "description": "Optional HTTPS webhook. POSTed when a HIGH-severity diff lands. Payload includes function name + file path + risk score; no source code. Throttled to 1 POST per function per 5 min."
         },
         "impactflow.preCommit.mode": {
           "type": "string",
           "enum": ["warn", "block"],
           "default": "warn",
           "description": "Pre-commit hook mode. warn = exit 0; block = exit 1. Always bypassable via --no-verify."
+        },
+        "impactflow.ai.enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable BYOK AI commands (Explain Change / Suggest Tests / Review). Uses VS Code's Language Model API — pick your model in VS Code settings. The extension never sees an API key."
+        },
+        "impactflow.ai.preferredModel": {
+          "type": "string",
+          "default": "",
+          "description": "Optional model selector hint, format `vendor/family` (e.g. `copilot/gpt-4o`). Empty = first available model."
+        },
+        "impactflow.ai.cacheTtlHours": {
+          "type": "number",
+          "default": 24,
+          "description": "How long to cache AI responses (by function ID + body hash). Repeated calls on the same unchanged function hit the cache, free."
+        },
+        "impactflow.ai.maxPromptTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "Hard cap on prompt tokens per call. Prevents accidental token burn."
+        },
+        "impactflow.ai.maxResponseTokens": {
+          "type": "number",
+          "default": 1000,
+          "description": "Hard cap on response tokens per call (estimated; stops streaming when reached)."
+        },
+        "impactflow.ai.rateLimitSeconds": {
+          "type": "number",
+          "default": 60,
+          "description": "Minimum seconds between AI calls for the same function."
         }
       }
     },

@@ -77,8 +77,8 @@ function buildBody(payload: FeedbackPayload, env: Record<string, string> | undef
   }
   if (payload.attachLogs) {
     lines.push('');
-    lines.push('Recent log lines (last 200):');
-    lines.push(logger.recent(200).join('\n'));
+    lines.push('Recent log lines (last 200, paths scrubbed):');
+    lines.push(scrubPaths(logger.recent(200).join('\n')));
   }
 
   return {
@@ -100,6 +100,20 @@ function collectEnv(context: vscode.ExtensionContext): Record<string, string> {
     osRelease: os.release(),
     nodeVersion: process.version,
   };
+}
+
+// S3 — strip absolute paths from log lines before they leave the machine.
+// Unix-style: /Users/foo/proj/file.ts → <path>/file.ts
+// Windows-style: C:\Users\foo\proj\file.ts → <path>\file.ts
+const UNIX_ABS_PATH_RE = /(?<![\w/])\/(?:[\w.@-]+\/)+([\w.@-]+)/g;
+const WINDOWS_ABS_PATH_RE = /(?<![\w\\])[A-Z]:\\(?:[\w.@ -]+\\)+([\w.@-]+)/g;
+const HOME_RE = /\/(?:home|Users)\/[\w.-]+/g;
+
+function scrubPaths(text: string): string {
+  return text
+    .replace(UNIX_ABS_PATH_RE, '<path>/$1')
+    .replace(WINDOWS_ABS_PATH_RE, '<path>\\$1')
+    .replace(HOME_RE, '<home>');
 }
 
 function githubFallback(

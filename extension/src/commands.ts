@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import type { AiCommandHandler } from './ai/commands.js';
 import type { DocumentWatcher } from './change-detection/watcher.js';
 import { logger } from './logger.js';
 import type { Pipeline } from './pipeline.js';
+import type { FnSummary } from './shared/messages.js';
 import type { SidePanelProvider } from './side-panel-provider.js';
 import type { FeedbackStore } from './storage/feedback-store.js';
 
@@ -13,6 +15,7 @@ interface CommandDeps {
   pipeline: Pipeline;
   watcher: DocumentWatcher;
   feedback: FeedbackStore;
+  ai: AiCommandHandler;
 }
 
 export const registerCommands = (deps: CommandDeps) => {
@@ -38,6 +41,63 @@ export const registerCommands = (deps: CommandDeps) => {
   reg('impactflow.draftCommitMessage', draftCommitMessageHandler());
   reg('impactflow.draftPrDescription', draftPrDescriptionHandler());
   reg('impactflow.resetDismissals', resetDismissalsHandler(deps.feedback, deps.pipeline));
+
+  reg('impactflow.ai.explainChange', () =>
+    deps.ai.run('explain', () => pickFunction(deps.pipeline)),
+  );
+  reg('impactflow.ai.suggestTests', () => deps.ai.run('tests', () => pickFunction(deps.pipeline)));
+  reg('impactflow.ai.reviewHighRisk', () =>
+    deps.ai.run('review', () => pickHighRiskFunction(deps.pipeline)),
+  );
+  reg('impactflow.ai.clearCache', () => deps.ai.clearCache());
+};
+
+// Quick Pick over the snapshot's modified functions. Returns a thunk that the
+// AiCommandHandler can call once the user has confirmed enabling AI.
+const pickFunction = async (
+  pipeline: Pipeline,
+): Promise<{ fn: FnSummary; filePath: string } | undefined> => {
+  const items = pipeline.currentModifiedFunctions();
+  if (items.length === 0) {
+    vscode.window.showInformationMessage(
+      'ImpactFlow: no modified functions in the current snapshot. Edit a file first.',
+    );
+    return undefined;
+  }
+  if (items.length === 1) return items[0];
+  const picked = await vscode.window.showQuickPick(
+    items.map((it) => ({
+      label: it.fn.name,
+      description: `risk ${it.fn.risk?.score?.toFixed(1) ?? '–'} · ${it.fn.topSeverity ?? '–'}`,
+      detail: shortenPath(it.filePath),
+      item: it,
+    })),
+    { title: 'ImpactFlow — pick a modified function' },
+  );
+  return picked?.item;
+};
+
+const pickHighRiskFunction = async (
+  pipeline: Pipeline,
+): Promise<{ fn: FnSummary; filePath: string } | undefined> => {
+  const high = pipeline.currentModifiedFunctions().filter((it) => it.fn.topSeverity === 'high');
+  if (high.length === 0) {
+    vscode.window.showInformationMessage(
+      'ImpactFlow: no HIGH-risk changes in the current snapshot.',
+    );
+    return undefined;
+  }
+  if (high.length === 1) return high[0];
+  const picked = await vscode.window.showQuickPick(
+    high.map((it) => ({
+      label: it.fn.name,
+      description: `risk ${it.fn.risk?.score?.toFixed(1) ?? '–'}`,
+      detail: shortenPath(it.filePath),
+      item: it,
+    })),
+    { title: 'ImpactFlow — pick a HIGH-risk function' },
+  );
+  return picked?.item;
 };
 
 const analyzeNowHandler =

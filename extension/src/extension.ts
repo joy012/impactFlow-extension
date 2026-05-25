@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import * as vscode from 'vscode';
+import { AiCommandHandler } from './ai/commands.js';
 import { type Baseline, EmptyBaseline, GitHeadBaseline } from './change-detection/baseline.js';
 import { DocumentWatcher } from './change-detection/watcher.js';
 import { registerCommands } from './commands.js';
@@ -58,7 +59,8 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const feedback = new FeedbackStore(context);
   engineRouter = new WorkspaceEngineRouter(context);
   pipeline = new Pipeline(baseline, feedback, engineRouter);
-  provider = new SidePanelProvider(context, pipeline, feedback);
+  const ai = new AiCommandHandler();
+  provider = new SidePanelProvider(context, pipeline, feedback, ai);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(SidePanelProvider.viewType, provider, {
@@ -105,7 +107,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  registerCommands({ context, provider, pipeline, watcher, feedback });
+  registerCommands({ context, provider, pipeline, watcher, feedback, ai });
 
   await pipeline
     .analyzeOpenDocuments()

@@ -330,7 +330,50 @@ function FnRow({
               {fn.risk.explanation.join(' · ')}
             </div>
           )}
-          <div className="mt-1 flex items-center justify-end">
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() =>
+                  getVsCode().postMessage({
+                    type: 'aiActionForFn',
+                    payload: { fnId: fn.id, action: 'explain' },
+                  })
+                }
+                className="text-link hover:underline"
+                title="AI: Explain this change (BYOK · opt-in)"
+              >
+                🔍 explain
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  getVsCode().postMessage({
+                    type: 'aiActionForFn',
+                    payload: { fnId: fn.id, action: 'tests' },
+                  })
+                }
+                className="text-link hover:underline"
+                title="AI: Suggest tests for this change"
+              >
+                🧪 tests
+              </button>
+              {fn.topSeverity === 'high' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    getVsCode().postMessage({
+                      type: 'aiActionForFn',
+                      payload: { fnId: fn.id, action: 'review' },
+                    })
+                  }
+                  className="text-link hover:underline"
+                  title="AI: Focused review of this high-risk change"
+                >
+                  🚨 review
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={() =>

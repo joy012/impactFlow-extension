@@ -97,6 +97,15 @@ export class Pipeline {
     }
   }
 
+  // Snapshot of modified functions across all files — used by AI commands' Quick Pick.
+  currentModifiedFunctions(): Array<{ fn: FnSummary; filePath: string }> {
+    const out: Array<{ fn: FnSummary; filePath: string }> = [];
+    for (const file of this.fileSnapshots.values()) {
+      for (const m of file.modified) out.push({ fn: m, filePath: file.path });
+    }
+    return out;
+  }
+
   perfStats(): { samples: number; p50: number; p95: number; last: number | null } {
     if (this.perfSamples.length === 0) return { samples: 0, p50: 0, p95: 0, last: null };
     const sorted = [...this.perfSamples].sort((a, b) => a.durationMs - b.durationMs);

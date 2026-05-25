@@ -132,4 +132,5 @@ export type WebviewToHostMessage =
   | { type: 'runCommand'; payload: { command: string } }
   | { type: 'revealFunction'; payload: { filePath: string; line: number } }
   | { type: 'dismissFinding'; payload: { fnId: string; reason?: string } }
-  | { type: 'copyToClipboard'; payload: { text: string; toast?: string } };
+  | { type: 'copyToClipboard'; payload: { text: string; toast?: string } }
+  | { type: 'aiActionForFn'; payload: { fnId: string; action: 'explain' | 'tests' | 'review' } };

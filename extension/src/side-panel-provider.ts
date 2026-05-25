@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
+import type { AiCommandHandler } from './ai/commands.js';
 import { submitFeedback } from './feedback/index.js';
 import { isGitRepo } from './git-detect.js';
 import { logger } from './logger.js';
 import type { Pipeline } from './pipeline.js';
 import type {
   FeedbackPayload,
+  FnSummary,
   HostToWebviewMessage,
   WebviewToHostMessage,
 } from './shared/messages.js';
@@ -16,11 +18,14 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private snapshotDisposable: vscode.Disposable | undefined;
   private progressDisposable: vscode.Disposable | undefined;
+  // Index by fn id so the AI quick-action buttons can look up the live FnSummary.
+  private lastFnIndex = new Map<string, { fn: FnSummary; filePath: string }>();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly pipeline: Pipeline,
     private readonly feedbackStore: FeedbackStore,
+    private readonly ai: AiCommandHandler,
   ) {}
 
   async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
@@ -44,6 +49,10 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     this.snapshotDisposable?.dispose();
     this.snapshotDisposable = this.pipeline.onSnapshot((snap) => {
+      this.lastFnIndex.clear();
+      for (const f of snap.files) {
+        for (const m of f.modified) this.lastFnIndex.set(m.id, { fn: m, filePath: f.path });
+      }
       this.post({ type: 'analysisUpdate', payload: snap });
     });
     this.progressDisposable?.dispose();
@@ -115,6 +124,17 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       case 'copyToClipboard': {
         await vscode.env.clipboard.writeText(message.payload.text);
         vscode.window.setStatusBarMessage(message.payload.toast ?? 'Copied to clipboard.', 2000);
+        return;
+      }
+      case 'aiActionForFn': {
+        const entry = this.lastFnIndex.get(message.payload.fnId);
+        if (!entry) {
+          vscode.window.showInformationMessage(
+            'ImpactFlow: function no longer in the snapshot. Re-edit to refresh.',
+          );
+          return;
+        }
+        await this.ai.run(message.payload.action, () => entry);
         return;
       }
       case 'revealFunction': {

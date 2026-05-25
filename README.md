@@ -21,7 +21,7 @@ For every edit, ImpactFlow tells you:
 - 📝 **Drafts the commit + PR** — Conventional-Commits subject + a structured PR body
 - ⏳ **Shows live progress** — animated phase bar + pulse dot while the pipeline runs
 
-All **local**. **No network. No AI tokens. No accounts.**
+All **local by default**. No network. No accounts. Optional opt-in AI using your existing VS Code model provider (Copilot, custom Anthropic/OpenAI, local Ollama) — the extension never sees an API key.
 
 ---
 
@@ -69,9 +69,17 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 - 🟥🟧🟦 Gutter circles per severity + overview-ruler marks
 - 📍 Status bar `$(pulse) ImpactFlow: 2 high · 5 med` — warning color on high
 
+### 🤖 BYOK AI (opt-in, off by default)
+- 🔍 **`AI: Explain Change`** — feeds our structured behavior-diff to your model, returns "what this means + what to verify + edge cases"
+- 🧪 **`AI: Suggest Tests`** — 3-6 concrete test cases targeting the detected diff types
+- 🚨 **`AI: Review High-Risk Change`** — focused skeptical review, caller-by-caller impact assessment
+- 🔑 **No API key in the extension** — uses VS Code's `vscode.lm` API; the user picks the model (Copilot, custom Anthropic/OpenAI providers, local Ollama). The extension never sees your key.
+- 💸 **Token-aware:** 24 h response cache (LRU 100, keyed by function ID + body hash) · 60 s rate limit per function · 2 k prompt cap · 1 k response cap · cancellable mid-stream
+- 🏃 **Streaming preview** — markdown tab updates token-by-token
+
 ### 🔒 Privacy & cost
-- 🚫 No network by default (only user-initiated feedback)
-- 💸 **Zero LLM tokens** spent by the extension
+- 🚫 No network by default (only user-initiated feedback + opt-in AI)
+- 💸 **Zero LLM tokens** unless you turn on `impactflow.ai.enable` and pick a model
 - 📵 Telemetry off by default; opt-in emits counts only (no source, no paths)
 - 🗂️ Multi-root workspaces — engines route per file path
 
@@ -105,25 +113,31 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 
 ---
 
-## 🎛️ Commands (18)
+## 🎛️ Commands (22)
+
+> Open the command palette (`Cmd/Ctrl + Shift + P`), type `imp` — all ImpactFlow commands appear with autocomplete. You never type the full name.
 
 | Command | What it does |
 |---|---|
-| `ImpactFlow: Analyze Changes Now` | Re-run the pipeline on every open document |
-| `ImpactFlow: Summarize Staged Changes` | Markdown PR-style summary against branch base |
+| `ImpactFlow: Analyze` | Re-run the pipeline on every open document |
+| `ImpactFlow: Summarize Staged` | Markdown PR-style summary against branch base |
 | `ImpactFlow: Compare Branches` | Full behavior diff between any two refs |
-| `ImpactFlow: Toggle Focus Mode` | Dim lines outside ±10 of modified functions |
+| `ImpactFlow: Focus Mode` | Dim lines outside ±10 of modified functions |
 | `ImpactFlow: Find Dead Code` | Workspace-wide unused-export scan (read-only) |
-| `ImpactFlow: Cleanup Dead Code (preview + apply)` | Safety-gated, undoable removal flow |
+| `ImpactFlow: Clean Dead Code` | Safety-gated, undoable removal flow |
 | `ImpactFlow: Refresh Coverage` | Reload `lcov.info` and re-render coverage badges |
-| `ImpactFlow: Draft Commit Message` | Conventional-Commits style → clipboard |
-| `ImpactFlow: Draft PR Description` | Structured markdown → clipboard + preview |
-| `ImpactFlow: Install Pre-Commit Hook (warn / block)` | Install the bash hook in either mode |
-| `ImpactFlow: Uninstall Pre-Commit Hook` | Remove only the managed block |
+| `ImpactFlow: Draft Commit Msg` | Conventional-Commits style → clipboard |
+| `ImpactFlow: Draft PR` | Structured markdown → clipboard + preview |
+| `ImpactFlow: Install Hook (warn / block)` | Install the bash pre-commit hook |
+| `ImpactFlow: Uninstall Hook` | Remove only the managed block |
 | `ImpactFlow: Reset Baseline` | Drop snapshots, re-analyze |
 | `ImpactFlow: Reset Dismissals` | Restore previously dismissed findings |
-| `ImpactFlow: Show Performance Diagnostics` | p50 / p95 / last-sample analysis time |
-| `ImpactFlow: Send Feedback` / `Report a Bug` / `Request a Feature` | Open the form pre-filled |
+| `ImpactFlow: Perf Diagnostics` | p50 / p95 / last-sample analysis time |
+| `ImpactFlow: Send Feedback` / `Report Bug` / `Request Feature` | Open the form pre-filled |
+| `ImpactFlow: AI: Explain Change` | Send structured diff to your model, get implications + verification list |
+| `ImpactFlow: AI: Suggest Tests` | Model proposes 3-6 test cases for the changed function |
+| `ImpactFlow: AI: Review High-Risk Change` | Focused skeptical review of HIGH-severity changes |
+| `ImpactFlow: AI: Clear Response Cache` | Drop the 24h AI response cache |
 
 ---
 
@@ -144,6 +158,12 @@ GitLens shows blame. VS Code shows coverage. Knip finds dead exports. Copilot dr
 | `impactflow.cleanup.preserveGlob` | (12 entries) | Globs the cleanup will never offer to remove |
 | `impactflow.notify.webhookUrl` | `""` | POSTed when a HIGH-severity diff lands |
 | `impactflow.preCommit.mode` | `warn` | `warn` or `block` for the pre-commit hook |
+| `impactflow.ai.enable` | `false` | Enable BYOK AI commands |
+| `impactflow.ai.preferredModel` | `""` | `vendor/family` hint (e.g. `copilot/gpt-4o`) |
+| `impactflow.ai.cacheTtlHours` | `24` | AI response cache TTL |
+| `impactflow.ai.maxPromptTokens` | `2000` | Hard cap on prompt tokens per call |
+| `impactflow.ai.maxResponseTokens` | `1000` | Hard cap on response tokens per call |
+| `impactflow.ai.rateLimitSeconds` | `60` | Minimum seconds between AI calls per function |
 | `impactflow.telemetry` | `false` | Opt-in usage counts |
 | `impactflow.feedback.*` | — | Endpoint, GitHub fallback URL, env attach |
 
