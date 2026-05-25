@@ -10,11 +10,7 @@
     "vscode": "^1.95.0",
     "node": ">=22"
   },
-  "categories": [
-    "Programming Languages",
-    "Linters",
-    "Other"
-  ],
+  "categories": ["Programming Languages", "Linters", "Other"],
   "keywords": [
     "impact analysis",
     "ai code review",
@@ -24,9 +20,7 @@
     "copilot"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -165,9 +159,7 @@
         },
         "impactflow.include": {
           "type": "array",
-          "default": [
-            "**/*.{ts,tsx,js,jsx,mjs,cjs,py,pyi,go,dart,java,kt,kts}"
-          ],
+          "default": ["**/*.{ts,tsx,js,jsx,mjs,cjs,py,pyi,go,dart,java,kt,kts}"],
           "description": "Glob patterns of files to include."
         },
         "impactflow.exclude": {
@@ -183,30 +175,19 @@
         },
         "impactflow.baseline.inline": {
           "type": "string",
-          "enum": [
-            "head",
-            "lastSave"
-          ],
+          "enum": ["head", "lastSave"],
           "default": "head",
           "description": "Baseline used for inline / side panel diffs."
         },
         "impactflow.baseline.commit": {
           "type": "string",
-          "enum": [
-            "branchBase",
-            "head"
-          ],
+          "enum": ["branchBase", "head"],
           "default": "branchBase",
           "description": "Baseline used for commit-time summaries."
         },
         "impactflow.severity.show": {
           "type": "string",
-          "enum": [
-            "all",
-            "low",
-            "medium",
-            "high"
-          ],
+          "enum": ["all", "low", "medium", "high"],
           "default": "medium",
           "description": "Minimum severity to surface in the side panel."
         },
@@ -239,6 +220,50 @@
           "type": "string",
           "default": "https://github.com/joy012/impactflow/issues/new",
           "description": "Fallback URL when the feedback endpoint is unreachable."
+        },
+        "impactflow.ui.density": {
+          "type": "string",
+          "enum": ["compact", "comfortable"],
+          "default": "comfortable",
+          "description": "Side panel row density. compact = 22px, comfortable = 32px."
+        },
+        "impactflow.maxFileSizeKb": {
+          "type": "number",
+          "default": 512,
+          "description": "Skip files larger than this (KB) to keep the extension host responsive."
+        },
+        "impactflow.cleanup.requireGitClean": {
+          "type": "boolean",
+          "default": true,
+          "description": "Dead-code cleanup refuses to run on a dirty working tree unless this is false."
+        },
+        "impactflow.cleanup.preserveGlob": {
+          "type": "array",
+          "default": [
+            "**/index.*",
+            "**/bin/**",
+            "**/cli/**",
+            "**/main.*",
+            "**/pages/**",
+            "**/app/**",
+            "**/api/**",
+            "**/routes/**",
+            "**/*.gen.*",
+            "**/*_pb.*",
+            "**/generated/**"
+          ],
+          "description": "Globs that dead-code cleanup will never offer to remove."
+        },
+        "impactflow.notify.webhookUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional HTTPS webhook. POSTed when a HIGH-severity diff lands. No source in payload."
+        },
+        "impactflow.preCommit.mode": {
+          "type": "string",
+          "enum": ["warn", "block"],
+          "default": "warn",
+          "description": "Pre-commit hook mode. warn = exit 0; block = exit 1. Always bypassable via --no-verify."
         }
       }
     },

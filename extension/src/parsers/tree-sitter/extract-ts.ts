@@ -38,7 +38,7 @@ const handleTopLevel = (
   parentExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   switch (node.type) {
     case 'export_statement':
       handleExportStatement(node, filePath, out);
@@ -58,7 +58,7 @@ const handleTopLevel = (
   }
 };
 
-const handleExportStatement = (node: Node, filePath: string, out: Map<string, FnEntry>): void => {
+const handleExportStatement = (node: Node, filePath: string, out: Map<string, FnEntry>) => {
   let isDefault = false;
   for (let i = 0; i < node.childCount; i++) {
     const c = node.child(i);
@@ -104,7 +104,7 @@ const emitFunctionDeclaration = (
   isDefault: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const nameNode = fn.childForFieldName('name');
   const name = nameNode?.text ?? (isDefault ? 'default' : '(anonymous)');
   emit(fn, docAnchor, name, 'function', isExported || isDefault, filePath, out);
@@ -115,7 +115,7 @@ const handleClass = (
   classExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const nameNode = cls.childForFieldName('name');
   const className = nameNode?.text ?? '(anonymous)';
   const body = cls.childForFieldName('body');
@@ -135,7 +135,7 @@ const emitMethod = (
   classExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const nameNode = method.childForFieldName('name');
   const methodName = nameNode?.text ?? '(anonymous)';
 
@@ -174,7 +174,7 @@ const handleVariableStatement = (
   isExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   for (let i = 0; i < stmt.namedChildCount; i++) {
     const decl = stmt.namedChild(i);
     if (!decl || decl.type !== 'variable_declarator') continue;
@@ -197,7 +197,7 @@ const emit = (
   isExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const id = `${filePath}::${name}`;
   const fullText = node.text;
   const leadingDocText = collectLeadingComments(docAnchor);

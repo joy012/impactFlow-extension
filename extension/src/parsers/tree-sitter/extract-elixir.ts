@@ -22,12 +22,7 @@ export const extractElixirFunctions = (filePath: string, text: string): Function
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -108,7 +103,7 @@ const emitDef = (
   scope: string[],
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const name = extractDefName(call) ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   const isExported = defKind === 'def' || defKind === 'defmacro';

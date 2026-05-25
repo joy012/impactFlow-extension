@@ -24,13 +24,13 @@ export const extractGoFunctions = (filePath: string, text: string): FunctionTabl
   return { filePath, functions };
 };
 
-const emitFunction = (fn: Node, filePath: string, out: Map<string, FnEntry>): void => {
+const emitFunction = (fn: Node, filePath: string, out: Map<string, FnEntry>) => {
   const name = fn.childForFieldName('name')?.text;
   if (!name) return;
   emit(fn, name, 'function', isGoExported(name), filePath, out);
 };
 
-const emitMethod = (method: Node, filePath: string, out: Map<string, FnEntry>): void => {
+const emitMethod = (method: Node, filePath: string, out: Map<string, FnEntry>) => {
   const name = method.childForFieldName('name')?.text;
   if (!name) return;
   const receiver = method.childForFieldName('receiver');
@@ -61,7 +61,7 @@ const emit = (
   isExported: boolean,
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const fullText = node.text;
   const leadingDocText = collectLeadingComments(node);
   const id = `${filePath}::${name}`;
@@ -83,7 +83,7 @@ const emit = (
 // Go's exported-by-capital-letter convention.
 const isGoExported = (name: string): boolean => /^[A-Z]/.test(name);
 
-const walk = (node: Node, visit: (n: Node) => boolean): void => {
+const walk = (node: Node, visit: (n: Node) => boolean) => {
   const stack: Node[] = [node];
   while (stack.length) {
     const n = stack.pop();

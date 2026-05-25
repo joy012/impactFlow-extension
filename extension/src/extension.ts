@@ -3,12 +3,9 @@ import * as vscode from 'vscode';
 import { type Baseline, EmptyBaseline, GitHeadBaseline } from './change-detection/baseline.js';
 import { DocumentWatcher } from './change-detection/watcher.js';
 import { registerCommands } from './commands.js';
-import { CoverageEngine } from './coverage/lcov.js';
 import { InlineDecorations } from './decorations/inline.js';
 import { disposeFocusMode, setSnapshotForFocus } from './focus-mode.js';
-import { LastTouchedEngine } from './git-blame/last-touched.js';
 import { clearGitDetectCache } from './git-detect.js';
-import { HotspotEngine } from './hotspot/index.js';
 import { logger } from './logger.js';
 import { prepareGrammars } from './parsers/tree-sitter/grammar-cache.js';
 import { setGrammarRoot } from './parsers/tree-sitter/init.js';
@@ -17,12 +14,31 @@ import { SidePanelProvider } from './side-panel-provider.js';
 import { StatusBar } from './status-bar.js';
 import { FeedbackStore } from './storage/feedback-store.js';
 import { telemetry } from './telemetry/index.js';
+import { WorkspaceEngineRouter } from './workspace-router.js';
+
+const PRELOAD_GRAMMARS = [
+  'python',
+  'typescript',
+  'tsx',
+  'javascript',
+  'go',
+  'java',
+  'kotlin',
+  'rust',
+  'csharp',
+  'php',
+  'scala',
+  'objc',
+  'lua',
+  'elixir',
+] as const;
 
 let pipeline: Pipeline | undefined;
 let watcher: DocumentWatcher | undefined;
 let provider: SidePanelProvider | undefined;
 let statusBar: StatusBar | undefined;
 let decorations: InlineDecorations | undefined;
+let engineRouter: WorkspaceEngineRouter | undefined;
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
   logger.init(context);
@@ -32,10 +48,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
   setGrammarRoot(join(context.extensionUri.fsPath, 'dist', 'grammars'));
   try {
-    await prepareGrammars([
-      'python', 'typescript', 'tsx', 'javascript',
-      'go', 'java', 'kotlin', 'rust', 'csharp', 'php', 'scala', 'objc', 'lua', 'elixir',
-    ]);
+    await prepareGrammars([...PRELOAD_GRAMMARS]);
   } catch (err) {
     logger.error(`tree-sitter grammar load failed: ${(err as Error).message}`);
     // Continue activation; per-file analysis will surface errors individually.
@@ -43,19 +56,8 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
   const baseline = chooseBaseline();
   const feedback = new FeedbackStore(context);
-  const folders = vscode.workspace.workspaceFolders ?? [];
-  // B6 — for now we still bind these engines to the first folder. Multi-root
-  // routing per-file is tracked in ROADMAP §3 B6.
-  const workspaceRoot = folders[0]?.uri.fsPath;
-  const hotspot = workspaceRoot ? new HotspotEngine(workspaceRoot) : undefined;
-  const coverage = new CoverageEngine();
-  const lastTouched = workspaceRoot ? new LastTouchedEngine(workspaceRoot) : undefined;
-  if (workspaceRoot) {
-    void coverage
-      .init(workspaceRoot, context)
-      .catch((err) => logger.warn(`coverage init failed: ${(err as Error).message}`));
-  }
-  pipeline = new Pipeline(baseline, feedback, hotspot, coverage, lastTouched);
+  engineRouter = new WorkspaceEngineRouter(context);
+  pipeline = new Pipeline(baseline, feedback, engineRouter);
   provider = new SidePanelProvider(context, pipeline, feedback);
 
   context.subscriptions.push(
@@ -77,25 +79,27 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     decorations?.apply(snap);
     setSnapshotForFocus(snap);
     const counts = { high: 0, medium: 0, low: 0 };
-    for (const f of snap.files)
+    for (const f of snap.files) {
       for (const m of f.modified) {
         const s = m.topSeverity ?? 'low';
         if (s === 'high' || s === 'medium' || s === 'low') counts[s]++;
       }
+    }
     telemetry.send({
       name: 'analysis.completed',
       props: { fileCount: snap.files.length, ...counts, durationMs: snap.durationMs },
     });
-    void import('./webhook.js').then(({ notifyHighRisk }) => notifyHighRisk(snap));
+    import('./webhook.js')
+      .then(({ notifyHighRisk }) => notifyHighRisk(snap))
+      .catch((err) => logger.warn(`webhook notify failed: ${(err as Error).message}`));
   });
 
   context.subscriptions.push(
     vscode.window.onDidChangeVisibleTextEditors(() => {
-      void pipeline?.analyzeOpenDocuments();
+      pipeline
+        ?.analyzeOpenDocuments()
+        .catch((err) => logger.error('analyzeOpenDocuments on editor-change failed', err));
     }),
-  );
-
-  context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       clearGitDetectCache();
     }),
@@ -103,22 +107,26 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
   registerCommands({ context, provider, pipeline, watcher, feedback });
 
-  void pipeline.analyzeOpenDocuments();
+  await pipeline
+    .analyzeOpenDocuments()
+    .catch((err) => logger.error('initial analysis failed', err));
 
   logger.info('ImpactFlow activated.');
 };
 
-export const deactivate = (): void => {
+export const deactivate = () => {
   logger.info('ImpactFlow deactivating.');
   watcher?.dispose();
   statusBar?.dispose();
   decorations?.dispose();
+  engineRouter?.dispose();
   disposeFocusMode();
   watcher = undefined;
   pipeline = undefined;
   provider = undefined;
   statusBar = undefined;
   decorations = undefined;
+  engineRouter = undefined;
 };
 
 const chooseBaseline = (): Baseline => {

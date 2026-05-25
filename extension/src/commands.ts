@@ -15,7 +15,7 @@ interface CommandDeps {
   feedback: FeedbackStore;
 }
 
-export const registerCommands = (deps: CommandDeps): void => {
+export const registerCommands = (deps: CommandDeps) => {
   const { context } = deps;
   const reg = (id: string, fn: CommandHandler) =>
     context.subscriptions.push(vscode.commands.registerCommand(id, fn));
@@ -233,7 +233,7 @@ const resetDismissalsHandler = (feedback: FeedbackStore, pipeline: Pipeline) => 
     'Clear',
   );
   if (confirm !== 'Clear') return;
-  feedback.clearDismissals();
+  await feedback.clearDismissals();
   await pipeline.reset();
   vscode.window.showInformationMessage('ImpactFlow: dismissals cleared.');
 };

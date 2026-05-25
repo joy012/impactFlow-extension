@@ -30,9 +30,7 @@ export function ProgressBar({ progress }: { progress: ProgressPayload | undefine
       <div className="flex items-center gap-2 px-3 py-1 text-[10.5px] text-muted">
         <span className="impactflow-progress-pulse inline-block h-1.5 w-1.5 rounded-full bg-accent" />
         <span className="text-fg">{label}</span>
-        {progress.detail && (
-          <code className="truncate text-muted">{progress.detail}</code>
-        )}
+        {progress.detail && <code className="truncate text-muted">{progress.detail}</code>}
       </div>
     </div>
   );

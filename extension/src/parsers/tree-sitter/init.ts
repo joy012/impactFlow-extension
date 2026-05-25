@@ -5,7 +5,7 @@ import { Parser } from 'web-tree-sitter';
 let grammarRoot: string | null = null;
 let initPromise: Promise<void> | null = null;
 
-export const setGrammarRoot = (absolutePath: string): void => {
+export const setGrammarRoot = (absolutePath: string) => {
   grammarRoot = absolutePath;
 };
 

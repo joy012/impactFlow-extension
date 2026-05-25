@@ -19,12 +19,7 @@ export const extractRustFunctions = (filePath: string, text: string): FunctionTa
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -48,12 +43,7 @@ const walk = (
   }
 };
 
-const emitFn = (
-  fn: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const emitFn = (fn: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   const name = fn.childForFieldName('name')?.text ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   const isExported = hasPub(fn);

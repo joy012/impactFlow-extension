@@ -26,12 +26,7 @@ export const extractScalaFunctions = (filePath: string, text: string): FunctionT
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -41,18 +36,17 @@ const walk = (
       const name = c.childForFieldName('name')?.text ?? '(anonymous)';
       const body = c.childForFieldName('body');
       if (body) walk(body, [...scope, name], filePath, out);
-    } else if (c.type === 'template_body' || c.type === 'package_clause' || c.type === 'package_object') {
+    } else if (
+      c.type === 'template_body' ||
+      c.type === 'package_clause' ||
+      c.type === 'package_object'
+    ) {
       walk(c, scope, filePath, out);
     }
   }
 };
 
-const emit = (
-  fn: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const emit = (fn: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   const name = fn.childForFieldName('name')?.text ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   // Scala default visibility is public unless explicitly modified.

@@ -235,7 +235,7 @@ const emptyFacts = (text: string): FnFacts => ({
   complexity: 1,
 });
 
-const walk = (node: Node, visit: (n: Node) => boolean): void => {
+const walk = (node: Node, visit: (n: Node) => boolean) => {
   const stack: Node[] = [node];
   while (stack.length) {
     const n = stack.pop();

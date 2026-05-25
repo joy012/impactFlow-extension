@@ -27,6 +27,13 @@ export type ProgressListener = (progress: ProgressPayload) => void;
 const MAX_FILE_SNAPSHOTS = 200;
 const PERF_SAMPLE_CAP = 50;
 
+export interface EngineRouter {
+  hotspotFor(filePath: string): HotspotEngine | undefined;
+  lastTouchedFor(filePath: string): LastTouchedEngine | undefined;
+  coverageFor(filePath: string): CoverageEngine | undefined;
+  reloadCoverage(): Promise<boolean>;
+}
+
 export class Pipeline {
   private fileSnapshots = new Map<string, AnalysisFileSnapshot>();
   private listeners = new Set<SnapshotListener>();
@@ -36,16 +43,14 @@ export class Pipeline {
   constructor(
     private readonly baseline: Baseline,
     private readonly feedback?: FeedbackStore,
-    private readonly hotspot?: HotspotEngine,
-    private readonly coverage?: CoverageEngine,
-    private readonly lastTouched?: LastTouchedEngine,
+    private readonly engines?: EngineRouter,
   ) {}
 
   async refreshCoverage(): Promise<boolean> {
-    if (!this.coverage) return false;
-    await this.coverage.reload();
+    if (!this.engines) return false;
+    const active = await this.engines.reloadCoverage();
     await this.analyzeOpenDocuments();
-    return this.coverage.isActive();
+    return active;
   }
 
   onSnapshot(listener: SnapshotListener): vscode.Disposable {
@@ -153,7 +158,10 @@ export class Pipeline {
         .getConfiguration('impactflow.severity')
         .get<string>('show', 'medium');
 
-      void this.hotspot?.refresh(filePath);
+      this.engines
+        ?.hotspotFor(filePath)
+        ?.refresh(filePath)
+        .catch((err) => logger.debug(`hotspot refresh failed: ${(err as Error).message}`));
 
       if (modifiedTasks.length > 0) {
         this.emitProgress({ active: true, phase: 'references', detail: fileLabel });
@@ -220,12 +228,12 @@ export class Pipeline {
       impactedCount: impacted.length,
     });
     const coveragePct =
-      this.coverage?.forFunction(filePath, afterFn.startLine, afterFn.endLine) ?? null;
-    const lastTouched = await this.lastTouched?.lookup(
-      filePath,
-      afterFn.startLine,
-      afterFn.endLine,
-    );
+      this.engines
+        ?.coverageFor(filePath)
+        ?.forFunction(filePath, afterFn.startLine, afterFn.endLine) ?? null;
+    const lastTouched = await this.engines
+      ?.lastTouchedFor(filePath)
+      ?.lookup(filePath, afterFn.startLine, afterFn.endLine);
     return {
       ...summarize(afterFn),
       isExported: afterFn.isExported,
@@ -242,7 +250,7 @@ export class Pipeline {
       tier,
       dismissed: this.feedback?.isDismissed(afterFn.id) ?? false,
       complexity: countComplexity(afterFn.fullText),
-      hotspotScore: this.hotspot?.score(filePath),
+      hotspotScore: this.engines?.hotspotFor(filePath)?.score(filePath),
       coveragePct: coveragePct ?? undefined,
       lastTouched: lastTouched ?? undefined,
     };

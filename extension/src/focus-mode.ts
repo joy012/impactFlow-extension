@@ -18,7 +18,7 @@ const ensureDecoration = (): vscode.TextEditorDecorationType => {
   return dimType;
 };
 
-export const setSnapshotForFocus = (snap: AnalysisSnapshot): void => {
+export const setSnapshotForFocus = (snap: AnalysisSnapshot) => {
   lastSnapshot = snap;
   if (active) refreshAll();
 };
@@ -38,11 +38,11 @@ export const toggleFocusMode = async (): Promise<void> => {
   vscode.window.setStatusBarMessage('ImpactFlow: focus mode on — unrelated lines dimmed.', 2500);
 };
 
-const refreshAll = (): void => {
+const refreshAll = () => {
   for (const editor of vscode.window.visibleTextEditors) refreshEditor(editor);
 };
 
-const refreshEditor = (editor: vscode.TextEditor): void => {
+const refreshEditor = (editor: vscode.TextEditor) => {
   const deco = ensureDecoration();
   const file = lastSnapshot?.files.find((f) => f.path === editor.document.uri.fsPath);
   if (!file) {
@@ -65,12 +65,12 @@ const refreshEditor = (editor: vscode.TextEditor): void => {
   editor.setDecorations(deco, dimRanges);
 };
 
-const clearAll = (): void => {
+const clearAll = () => {
   if (!dimType) return;
   for (const editor of vscode.window.visibleTextEditors) editor.setDecorations(dimType, []);
 };
 
-export const disposeFocusMode = (): void => {
+export const disposeFocusMode = () => {
   dimType?.dispose();
   dimType = undefined;
   editorChangeSub?.dispose();

@@ -28,12 +28,7 @@ export const extractLuaFunctions = (filePath: string, text: string): FunctionTab
   return { filePath, functions: out };
 };
 
-const emitFunction = (
-  fn: Node,
-  isLocal: boolean,
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const emitFunction = (fn: Node, isLocal: boolean, filePath: string, out: Map<string, FnEntry>) => {
   const nameNode = fn.childForFieldName('name');
   if (!nameNode) return;
   const name = nameNode.text;

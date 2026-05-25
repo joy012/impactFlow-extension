@@ -19,12 +19,7 @@ export const extractPythonFunctions = (filePath: string, text: string): Function
   return { filePath, functions };
 };
 
-const walk = (
-  node: Node,
-  classStack: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, classStack: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const child = node.namedChild(i);
     if (!child) continue;
@@ -66,7 +61,7 @@ const emitFunction = (
   classStack: string[],
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const nameNode = fn.childForFieldName('name');
   if (!nameNode) return;
   const name = nameNode.text;

@@ -25,6 +25,6 @@ export const isGitRepo = (workspaceRoot: string | undefined): boolean => {
   return isGit;
 };
 
-export const clearGitDetectCache = (): void => {
+export const clearGitDetectCache = () => {
   cached = undefined;
 };

@@ -52,7 +52,9 @@ export class DocumentWatcher implements vscode.Disposable {
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       this.timers.delete(filePath);
-      void this.fire({ filePath, reason });
+      this.fire({ filePath, reason }).catch((err) =>
+        logger.error(`watcher fire failed for ${filePath}`, err),
+      );
     }, delay);
     this.timers.set(filePath, timer);
   }

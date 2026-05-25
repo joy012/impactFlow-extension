@@ -12,7 +12,7 @@
  */
 
 import { promises as fs } from 'node:fs';
-import { join, relative } from 'node:path';
+import { relative } from 'node:path';
 import { simpleGit } from 'simple-git';
 import * as vscode from 'vscode';
 import { isGitRepo } from '../git-detect.js';
@@ -233,6 +233,3 @@ function globMatch(path: string, pattern: string): boolean {
   );
   return re.test(path);
 }
-
-// Avoid TS "unused" warnings while we keep these in the module.
-void join;

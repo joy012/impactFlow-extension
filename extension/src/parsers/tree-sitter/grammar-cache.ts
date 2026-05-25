@@ -83,7 +83,7 @@ export const prepareGrammars = async (names: GrammarName[]): Promise<void> => {
   await Promise.all(names.map(loadGrammar));
 };
 
-export const clearGrammarCache = (): void => {
+export const clearGrammarCache = () => {
   cache.clear();
   loadingPromises.clear();
 };
@@ -96,7 +96,7 @@ const grammarPath = (name: GrammarName): string => {
   return path;
 };
 
-const insert = (name: GrammarName, lang: Language): void => {
+const insert = (name: GrammarName, lang: Language) => {
   if (cache.size >= MAX_RESIDENT) {
     const oldest = cache.keys().next().value as GrammarName | undefined;
     if (oldest) cache.delete(oldest);
@@ -104,7 +104,7 @@ const insert = (name: GrammarName, lang: Language): void => {
   cache.set(name, lang);
 };
 
-const touch = (name: GrammarName): void => {
+const touch = (name: GrammarName) => {
   const lang = cache.get(name);
   if (!lang) return;
   cache.delete(name);

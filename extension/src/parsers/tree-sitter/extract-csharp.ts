@@ -35,12 +35,7 @@ export const extractCsharpFunctions = (filePath: string, text: string): Function
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -65,12 +60,7 @@ const walk = (
   }
 };
 
-const emitMethod = (
-  m: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const emitMethod = (m: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   const name = m.childForFieldName('name')?.text ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   const isExported = hasPublic(m);

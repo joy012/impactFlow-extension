@@ -26,12 +26,7 @@ export const extractPhpFunctions = (filePath: string, text: string): FunctionTab
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -56,7 +51,7 @@ const emit = (
   scope: string[],
   filePath: string,
   out: Map<string, FnEntry>,
-): void => {
+) => {
   const name = m.childForFieldName('name')?.text ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   // PHP default visibility is public; an explicit `private` flips it.

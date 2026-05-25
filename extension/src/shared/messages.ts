@@ -105,13 +105,7 @@ export interface AnalysisSnapshot {
   durationMs: number;
 }
 
-export type ProgressPhase =
-  | 'parsing'
-  | 'diffing'
-  | 'references'
-  | 'risk'
-  | 'rendering'
-  | 'idle';
+export type ProgressPhase = 'parsing' | 'diffing' | 'references' | 'risk' | 'rendering' | 'idle';
 
 export interface ProgressPayload {
   active: boolean;

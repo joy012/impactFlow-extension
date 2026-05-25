@@ -33,8 +33,9 @@ export class FeedbackStore {
     await this.context.workspaceState.update(KEY, []);
   }
 
-  // G10 — Reset Dismissals command needs a synchronous clear that fires-and-forgets.
-  clearDismissals(): void {
-    void this.context.workspaceState.update(KEY, []);
+  // G10 — Reset Dismissals command. Await this to ensure the next pipeline pass
+  // sees the cleared state.
+  async clearDismissals(): Promise<void> {
+    await this.context.workspaceState.update(KEY, []);
   }
 }

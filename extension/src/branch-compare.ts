@@ -1,8 +1,3 @@
-/**
- * F8 — Branch-vs-branch diff view.
- * Lets the user compare any two refs and renders the behavior-diff report.
- */
-
 import { relative } from 'node:path';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import * as vscode from 'vscode';
@@ -13,7 +8,9 @@ import { buildFunctionTable, languageFor } from './parsers/router.js';
 import { diffFunctionTables, emptyTable } from './parsers/typescript/diff-functions.js';
 import { computeRisk } from './risk/formula.js';
 
-export async function runBranchCompare(): Promise<void> {
+type Severity = 'safe' | 'low' | 'medium' | 'high';
+
+export const runBranchCompare = async (): Promise<void> => {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
     vscode.window.showWarningMessage('ImpactFlow: open a folder first.');
@@ -22,32 +19,15 @@ export async function runBranchCompare(): Promise<void> {
   const root = folder.uri.fsPath;
   const git = simpleGit(root);
 
-  let refs: string[];
-  try {
-    const branches = await git.branch(['--list', '--all']);
-    const tags = await git.tags();
-    refs = [...branches.all, ...tags.all].filter(Boolean);
-    if (refs.length === 0) {
-      vscode.window.showWarningMessage('ImpactFlow: no git refs found.');
-      return;
-    }
-  } catch (err) {
-    vscode.window.showErrorMessage(`ImpactFlow: git not available (${(err as Error).message}).`);
-    return;
-  }
+  const refs = await listRefs(git);
+  if (!refs) return;
 
-  const sourceRef = await vscode.window.showQuickPick(['HEAD', ...refs], {
-    title: 'ImpactFlow — compare branches (1/2): source ref',
-    placeHolder: 'Pick the ref containing the new changes (default: HEAD)',
-  });
+  const sourceRef = await pickRef(['HEAD', ...refs], 1, 'source ref containing new changes');
   if (!sourceRef) return;
-
-  const targetRef = await vscode.window.showQuickPick(
+  const targetRef = await pickRef(
     refs.filter((r) => r !== sourceRef),
-    {
-      title: 'ImpactFlow — compare branches (2/2): target ref',
-      placeHolder: 'Pick the ref to compare against (typically main)',
-    },
+    2,
+    'target ref (typically main)',
   );
   if (!targetRef) return;
 
@@ -71,20 +51,60 @@ export async function runBranchCompare(): Promise<void> {
       }
     },
   );
-}
+};
 
-async function compareRefs(
+const listRefs = async (git: SimpleGit): Promise<string[] | null> => {
+  try {
+    const branches = await git.branch(['--list', '--all']);
+    const tags = await git.tags();
+    // Pin HEAD + the current branch at the top so the picker default is sensible (N5 audit nudge).
+    const current = branches.current ?? 'HEAD';
+    const ordered = [current, ...branches.all.filter((b) => b !== current), ...tags.all].filter(
+      (b, i, arr) => Boolean(b) && arr.indexOf(b) === i,
+    );
+    if (ordered.length === 0) {
+      vscode.window.showWarningMessage('ImpactFlow: no git refs found.');
+      return null;
+    }
+    return ordered;
+  } catch (err) {
+    vscode.window.showErrorMessage(`ImpactFlow: git not available (${(err as Error).message}).`);
+    return null;
+  }
+};
+
+const pickRef = (refs: string[], step: 1 | 2, hint: string): Thenable<string | undefined> =>
+  vscode.window.showQuickPick(refs, {
+    title: `ImpactFlow — compare branches (${step}/2): ${hint}`,
+    placeHolder: refs[0],
+  });
+
+const compareRefs = async (
   git: SimpleGit,
   root: string,
   sourceRef: string,
   targetRef: string,
   token: vscode.CancellationToken,
-): Promise<string> {
+): Promise<string> => {
+  // B7 — detect disconnected histories rather than silently falling back.
   let mergeBase: string;
   try {
     mergeBase = (await git.raw(['merge-base', sourceRef, targetRef])).trim();
+    if (!mergeBase) throw new Error('empty merge-base');
   } catch {
-    mergeBase = targetRef;
+    return [
+      '# ImpactFlow — Branch Compare',
+      '',
+      `**${sourceRef}** vs **${targetRef}**`,
+      '',
+      '> ⚠ **Histories are unrelated.** `git merge-base` returned no common ancestor.',
+      "> ImpactFlow can't compute a behavior diff across disconnected histories.",
+      '',
+      'Likely causes:',
+      '- Different repos accidentally merged into one workspace',
+      "- A shallow clone that doesn't include the common ancestor (`git fetch --unshallow` may fix it)",
+      '- One side is an orphan branch created with `git checkout --orphan`',
+    ].join('\n');
   }
 
   const files = (await git.diff([`${mergeBase}...${sourceRef}`, '--name-only']))
@@ -93,18 +113,17 @@ async function compareRefs(
     .filter((p) => p && languageFor(p) !== null);
 
   if (files.length === 0) {
-    return [
-      '# ImpactFlow — Branch Compare',
-      '',
-      `**${sourceRef}** vs **${targetRef}**`,
-      '',
+    return renderHeader(
+      sourceRef,
+      targetRef,
+      mergeBase,
       '_No behavior-relevant files changed between these refs._',
-    ].join('\n');
+    );
   }
 
-  const sections: string[] = [];
-  const counts = { safe: 0, low: 0, medium: 0, high: 0 };
+  const counts: Record<Severity, number> = { safe: 0, low: 0, medium: 0, high: 0 };
   let totalDiffs = 0;
+  const sections: string[] = [];
 
   for (const rel of files) {
     if (token.isCancellationRequested) break;
@@ -142,47 +161,42 @@ async function compareRefs(
   }
 
   if (sections.length === 0) {
-    return [
-      '# ImpactFlow — Branch Compare',
-      '',
-      `**${sourceRef}** vs **${targetRef}**`,
-      '',
-      '_No behavioral changes detected._',
-    ].join('\n');
+    return renderHeader(sourceRef, targetRef, mergeBase, '_No behavioral changes detected._');
   }
 
-  const header = [
-    '# ImpactFlow — Branch Compare',
-    '',
-    `**${sourceRef}** vs **${targetRef}** (merge-base \`${mergeBase.slice(0, 7)}\`)`,
-    '',
+  const summary = [
     `Files: **${files.length}** · Behavior changes: **${totalDiffs}**`,
     '',
     `Risk: ${counts.high} HIGH · ${counts.medium} MEDIUM · ${counts.low} LOW · ${counts.safe} SAFE`,
+  ].join('\n');
+  return `${renderHeader(sourceRef, targetRef, mergeBase, summary)}\n\n${sections.join('\n\n')}`;
+};
+
+const renderHeader = (source: string, target: string, mergeBase: string, body: string): string =>
+  [
+    '# ImpactFlow — Branch Compare',
+    '',
+    `**${source}** vs **${target}** (merge-base \`${mergeBase.slice(0, 7)}\`)`,
+    '',
+    body,
     '',
     '---',
-    '',
   ].join('\n');
-  return header + sections.join('\n\n');
-}
 
-async function safeShow(git: SimpleGit, ref: string, relPath: string): Promise<string | null> {
+const safeShow = async (git: SimpleGit, ref: string, relPath: string): Promise<string | null> => {
   try {
     return await git.show([`${ref}:${relPath.replaceAll('\\', '/')}`]);
   } catch {
     return null;
   }
-}
+};
 
-function shortenPath(absOrRel: string, root: string): string {
-  return absOrRel.startsWith(root) ? relative(root, absOrRel) : absOrRel;
-}
+const shortenPath = (absOrRel: string, root: string): string =>
+  absOrRel.startsWith(root) ? relative(root, absOrRel) : absOrRel;
 
-function pickTop(
-  severities: Array<'safe' | 'low' | 'medium' | 'high'>,
-): 'safe' | 'low' | 'medium' | 'high' {
+const pickTop = (severities: Severity[]): Severity => {
   if (severities.includes('high')) return 'high';
   if (severities.includes('medium')) return 'medium';
   if (severities.includes('low')) return 'low';
   return 'safe';
-}
+};

@@ -30,7 +30,11 @@ const targets = [
   ['tree-sitter-objc', 'tree-sitter-objc.wasm', 'tree-sitter-objc.wasm'],
   ['tree-sitter-elixir', 'tree-sitter-elixir.wasm', 'tree-sitter-elixir.wasm'],
   ['@tree-sitter-grammars/tree-sitter-lua', 'tree-sitter-lua.wasm', 'tree-sitter-lua.wasm'],
-  ['@tree-sitter-grammars/tree-sitter-kotlin', 'tree-sitter-kotlin.wasm', 'tree-sitter-kotlin.wasm'],
+  [
+    '@tree-sitter-grammars/tree-sitter-kotlin',
+    'tree-sitter-kotlin.wasm',
+    'tree-sitter-kotlin.wasm',
+  ],
 ];
 
 for (const [pkg, relPath, outName] of targets) {

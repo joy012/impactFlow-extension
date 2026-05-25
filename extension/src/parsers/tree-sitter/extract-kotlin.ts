@@ -21,12 +21,7 @@ export const extractKotlinFunctions = (filePath: string, text: string): Function
   return { filePath, functions: out };
 };
 
-const walk = (
-  node: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const walk = (node: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (!c) continue;
@@ -50,12 +45,7 @@ const findChild = (node: Node, type: string): Node | null => {
   return null;
 };
 
-const emit = (
-  fn: Node,
-  scope: string[],
-  filePath: string,
-  out: Map<string, FnEntry>,
-): void => {
+const emit = (fn: Node, scope: string[], filePath: string, out: Map<string, FnEntry>) => {
   const name = fn.childForFieldName('name')?.text ?? '(anonymous)';
   const qualified = scope.length ? `${scope.join('.')}.${name}` : name;
   const isExported = !isPrivateOrInternal(fn);
