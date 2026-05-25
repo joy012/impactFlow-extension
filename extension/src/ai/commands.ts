@@ -4,8 +4,16 @@ import { logger } from '../logger.js';
 import { languageFor } from '../parsers/router.js';
 import { buildFunctionTable } from '../parsers/typescript/function-table.js';
 import type { FnSummary } from '../shared/messages.js';
+import type { AnalysisFileSnapshot } from '../shared/messages.js';
 import { AiResponseCache, buildCacheKey } from './cache.js';
-import { explainChangePrompt, reviewHighRiskPrompt, suggestTestsPrompt } from './prompts.js';
+import {
+  explainChangePrompt,
+  reviewHighRiskPrompt,
+  suggestTestsPrompt,
+  triageSnapshotPrompt,
+  updateDocsPrompt,
+  whyRiskPrompt,
+} from './prompts.js';
 import {
   type ChatRequest,
   estimateTokens,
@@ -15,14 +23,24 @@ import {
 } from './provider.js';
 import { RateLimiter } from './rate-limiter.js';
 
-type Kind = 'explain' | 'tests' | 'review';
+export type Kind = 'explain' | 'tests' | 'review' | 'updateDocs' | 'whyRisk';
 
-const KIND_META: Record<Kind, { title: string; emoji: string; build: typeof explainChangePrompt }> =
-  {
-    explain: { title: 'ImpactFlow — Explain Change', emoji: '🔍', build: explainChangePrompt },
-    tests: { title: 'ImpactFlow — Suggest Tests', emoji: '🧪', build: suggestTestsPrompt },
-    review: { title: 'ImpactFlow — Review High-Risk', emoji: '🚨', build: reviewHighRiskPrompt },
-  };
+type FnPromptBuilder = (
+  fn: FnSummary,
+  filePath: string,
+  fnText: string,
+) => { systemPrompt: string; userPrompt: string };
+
+// whyRiskPrompt only needs the fn; wrap it so all builders share a signature.
+const whyRiskAdapter: FnPromptBuilder = (fn) => whyRiskPrompt(fn);
+
+const KIND_META: Record<Kind, { title: string; emoji: string; build: FnPromptBuilder }> = {
+  explain: { title: 'ImpactFlow — Explain Change', emoji: '🔍', build: explainChangePrompt },
+  tests: { title: 'ImpactFlow — Suggest Tests', emoji: '🧪', build: suggestTestsPrompt },
+  review: { title: 'ImpactFlow — Review High-Risk', emoji: '🚨', build: reviewHighRiskPrompt },
+  updateDocs: { title: 'ImpactFlow — Update Docs', emoji: '📝', build: updateDocsPrompt },
+  whyRisk: { title: 'ImpactFlow — Why High-Risk', emoji: '❓', build: whyRiskAdapter },
+};
 
 export class AiCommandHandler {
   private readonly cache: AiResponseCache;
@@ -123,8 +141,9 @@ export class AiCommandHandler {
         const editor = await openPreview(meta.title);
         try {
           collected = await streamChat(model, request, token, (chunk) => {
-            // Live-update the preview as tokens stream in.
-            void editor.append(chunk);
+            // Live-update the preview as tokens stream in. Best-effort: if the user
+            // closed the doc mid-stream the append throws, which we ignore.
+            editor.append(chunk).catch(() => {});
             progress.report({ message: `${estimateTokens(collected + chunk)} tok…` });
           });
         } catch (err) {
@@ -138,6 +157,106 @@ export class AiCommandHandler {
         }
         if (collected) this.cache.set(cacheKey, collected);
         logger.info(`AI ${kind} ok: ${entry.fn.id} (${estimateTokens(collected)} tok)`);
+      },
+    );
+  }
+
+  // Snapshot-level run — for prompts like Triage that consume the whole modified set
+  // (no per-fn cache key; cache by snapshot hash instead).
+  async runTriage(
+    getSnapshot: () => AnalysisFileSnapshot[] | Promise<AnalysisFileSnapshot[]>,
+  ): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('impactflow.ai');
+    if (!cfg.get<boolean>('enable', false)) {
+      const open = await vscode.window.showWarningMessage(
+        'ImpactFlow AI commands are disabled. Enable `impactflow.ai.enable` in settings?',
+        'Open Settings',
+      );
+      if (open === 'Open Settings') {
+        await vscode.commands.executeCommand(
+          'workbench.action.openSettings',
+          'impactflow.ai.enable',
+        );
+      }
+      return;
+    }
+
+    const files = await getSnapshot();
+    const modifiedCount = files.reduce((acc, f) => acc + f.modified.length, 0);
+    if (modifiedCount === 0) {
+      vscode.window.showInformationMessage('ImpactFlow: no modified functions to triage.');
+      return;
+    }
+
+    // Cache key: stable hash of fn ids + their body hashes (via topSeverity proxy).
+    const snapshotKey = `triage::${files
+      .flatMap((f) => f.modified.map((m) => `${m.id}@${m.topSeverity ?? '–'}`))
+      .sort()
+      .join('|')}`;
+    const cached = this.cache.get(snapshotKey);
+    if (cached) {
+      await renderMarkdown('ImpactFlow — Triage', `📋 _(cached)_\n\n${cached}`);
+      return;
+    }
+
+    const limit = this.limiter.attempt('triage');
+    if (!limit.allowed) {
+      vscode.window.showWarningMessage(
+        `ImpactFlow AI: please wait ${Math.ceil(limit.retryAfterMs / 1000)}s before another triage call.`,
+      );
+      return;
+    }
+
+    const model = await selectModel(cfg.get<string>('preferredModel') || undefined);
+    if (!model) {
+      vscode.window.showWarningMessage(
+        'ImpactFlow: no Language Model provider available. Install GitHub Copilot or another `vscode.lm` provider.',
+      );
+      return;
+    }
+
+    const { systemPrompt, userPrompt } = triageSnapshotPrompt(files);
+    const request: ChatRequest = {
+      systemPrompt,
+      userPrompt,
+      maxTokens: cfg.get<number>('maxResponseTokens', 1000),
+    };
+    const promptTokens = estimateTokens(systemPrompt + userPrompt);
+    const promptCap = cfg.get<number>('maxPromptTokens', 2000);
+    if (promptTokens > promptCap) {
+      vscode.window.showWarningMessage(
+        `ImpactFlow AI: triage prompt is ~${promptTokens} tokens, over the ${promptCap} cap. Filter the snapshot first.`,
+      );
+      return;
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `📋 ${summarizeModel(model).name} · triage ${modifiedCount} fns (${promptTokens} tok)`,
+        cancellable: true,
+      },
+      async (progress, token) => {
+        let collected = '';
+        const editor = await openPreview('ImpactFlow — Triage');
+        try {
+          collected = await streamChat(model, request, token, (chunk) => {
+            editor.append(chunk).catch(() => {
+              /* best-effort streaming append; ignored if the doc closed */
+            });
+            progress.report({ message: `${estimateTokens(collected + chunk)} tok…` });
+          });
+        } catch (err) {
+          if (token.isCancellationRequested) {
+            await editor.append('\n\n_…cancelled._');
+            return;
+          }
+          logger.error('AI triage failed', err);
+          await editor.append(`\n\n_Error: ${(err as Error).message}_`);
+          return;
+        }
+        if (collected) this.cache.set(snapshotKey, collected);
+        logger.info(`AI triage ok: ${modifiedCount} fns (${estimateTokens(collected)} tok)`);
       },
     );
   }

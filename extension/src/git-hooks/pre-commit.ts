@@ -11,10 +11,18 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { platform } from 'node:os';
 import { join } from 'node:path';
 
 const SENTINEL_START = '# >>> impactflow pre-commit (managed) >>>';
 const SENTINEL_END = '# <<< impactflow pre-commit (managed) <<<';
+
+// B3 — Windows users without a POSIX-shell bundled by Git for Windows can't run
+// our bash hook. Git's `core.hooksPath` lets you point hooks elsewhere, but the
+// hook itself must run in whatever shell git invokes (bash on POSIX, bash via
+// MSYS on Windows-with-Git-for-Windows, nothing on Windows with native git).
+const WINDOWS_WARNING =
+  'Note: on Windows, this hook requires bash (ships with Git for Windows). If `git commit` errors with "bash: not found", install Git for Windows or set up a PowerShell hook manually.';
 
 export interface InstallResult {
   installed: boolean;
@@ -58,10 +66,13 @@ export async function installPreCommitHook(
   await fs.writeFile(hookPath, next, 'utf8');
   await fs.chmod(hookPath, 0o755);
 
+  const baseMessage = `Pre-commit hook installed in "${mode}" mode. Bypass any time with \`git commit --no-verify\`.`;
+  const message = platform() === 'win32' ? `${baseMessage}\n\n${WINDOWS_WARNING}` : baseMessage;
+
   return {
     installed: true,
     path: hookPath,
-    message: `Pre-commit hook installed in "${mode}" mode. Bypass any time with \`git commit --no-verify\`.`,
+    message,
   };
 }
 

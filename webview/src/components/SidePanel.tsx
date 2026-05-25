@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AnalysisFileSnapshot,
@@ -9,6 +10,10 @@ import type {
 } from '../shared/messages.js';
 import { getVsCode } from '../vscode.js';
 import { EmptyState } from './EmptyState.js';
+
+// Switch to virtualized rendering above this file count.
+// Below the threshold the DOM cost is tiny; virtualization would only buy variability.
+const VIRTUALIZE_THRESHOLD = 30;
 
 type FilterSeverity = 'all' | 'medium' | 'high';
 const SEVERITY_ORDER = { safe: 0, low: 1, medium: 2, high: 3 } as const;
@@ -117,18 +122,13 @@ export function SidePanel({
           ))}
         </div>
       </section>
-      <div className="flex-1">
-        {files.map((file) => (
-          <FileBlock
-            key={file.path}
-            file={file}
-            collapsed={collapsedPaths.has(file.path)}
-            onToggle={() => toggleCollapse(file.path)}
-            selectedId={selectedId}
-            setSelectedId={setSelectedId}
-          />
-        ))}
-      </div>
+      <VirtualizedFileList
+        files={files}
+        collapsedPaths={collapsedPaths}
+        toggleCollapse={toggleCollapse}
+        selectedId={selectedId}
+        setSelectedId={setSelectedId}
+      />
     </KeyboardNavRoot>
   );
 }
@@ -238,6 +238,82 @@ function EmptyStateNudge({
           }),
       }}
     />
+  );
+}
+
+function VirtualizedFileList({
+  files,
+  collapsedPaths,
+  toggleCollapse,
+  selectedId,
+  setSelectedId,
+}: {
+  files: AnalysisFileSnapshot[];
+  collapsedPaths: Set<string>;
+  toggleCollapse: (filePath: string) => void;
+  selectedId: string | undefined;
+  setSelectedId: (id: string | undefined) => void;
+}) {
+  // Small lists render directly — virtualization only kicks in past the threshold so
+  // small workspaces don't pay the ResizeObserver overhead.
+  if (files.length < VIRTUALIZE_THRESHOLD) {
+    return (
+      <div className="flex-1 overflow-auto">
+        {files.map((file) => (
+          <FileBlock
+            key={file.path}
+            file={file}
+            collapsed={collapsedPaths.has(file.path)}
+            onToggle={() => toggleCollapse(file.path)}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  // Heuristic row height: collapsed = ~32 px (header only); expanded files vary widely.
+  // We let react-virtual measure actual heights post-mount via ResizeObserver.
+  const virtualizer = useVirtualizer({
+    count: files.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => (collapsedPaths.has(files[i]!.path) ? 32 : 140),
+    overscan: 6,
+    getItemKey: (i) => files[i]!.path,
+  });
+
+  return (
+    <div ref={parentRef} className="flex-1 overflow-auto">
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        {virtualizer.getVirtualItems().map((vi) => {
+          const file = files[vi.index]!;
+          return (
+            <div
+              key={file.path}
+              ref={virtualizer.measureElement}
+              data-index={vi.index}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${vi.start}px)`,
+              }}
+            >
+              <FileBlock
+                file={file}
+                collapsed={collapsedPaths.has(file.path)}
+                onToggle={() => toggleCollapse(file.path)}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

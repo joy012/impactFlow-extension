@@ -43,7 +43,11 @@
       ]
     },
     "commands": [
-      { "command": "impactflow.analyzeNow", "title": "Analyze", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.analyzeNow",
+        "title": "Analyze",
+        "category": "ImpactFlow"
+      },
       {
         "command": "impactflow.summarizeStaged",
         "title": "Summarize Staged",
@@ -54,8 +58,16 @@
         "title": "Compare Branches",
         "category": "ImpactFlow"
       },
-      { "command": "impactflow.toggleFocusMode", "title": "Focus Mode", "category": "ImpactFlow" },
-      { "command": "impactflow.findDeadCode", "title": "Find Dead Code", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.toggleFocusMode",
+        "title": "Focus Mode",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.findDeadCode",
+        "title": "Find Dead Code",
+        "category": "ImpactFlow"
+      },
       {
         "command": "impactflow.cleanupDeadCode",
         "title": "Clean Dead Code",
@@ -71,7 +83,11 @@
         "title": "Draft Commit Msg",
         "category": "ImpactFlow"
       },
-      { "command": "impactflow.draftPrDescription", "title": "Draft PR", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.draftPrDescription",
+        "title": "Draft PR",
+        "category": "ImpactFlow"
+      },
       {
         "command": "impactflow.installPreCommit",
         "title": "Install Hook (warn)",
@@ -97,9 +113,21 @@
         "title": "Reset Dismissals",
         "category": "ImpactFlow"
       },
-      { "command": "impactflow.showPerf", "title": "Perf Diagnostics", "category": "ImpactFlow" },
-      { "command": "impactflow.sendFeedback", "title": "Send Feedback", "category": "ImpactFlow" },
-      { "command": "impactflow.reportBug", "title": "Report Bug", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.showPerf",
+        "title": "Perf Diagnostics",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.sendFeedback",
+        "title": "Send Feedback",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.reportBug",
+        "title": "Report Bug",
+        "category": "ImpactFlow"
+      },
       {
         "command": "impactflow.requestFeature",
         "title": "Request Feature",
@@ -125,7 +153,26 @@
         "title": "AI: Clear Response Cache",
         "category": "ImpactFlow"
       },
-      { "command": "impactflow.jumpToFn", "title": "Jump to Function", "category": "ImpactFlow" },
+      {
+        "command": "impactflow.ai.updateDocs",
+        "title": "AI: Update Docs",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.whyRisk",
+        "title": "AI: Why High-Risk?",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.ai.triage",
+        "title": "AI: Triage Snapshot",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.jumpToFn",
+        "title": "Jump to Function",
+        "category": "ImpactFlow"
+      },
       {
         "command": "impactflow.cycleSeverity",
         "title": "Cycle Severity Filter",
@@ -133,7 +180,12 @@
       },
       {
         "command": "impactflow.showCallerTree",
-        "title": "Show Caller Tree",
+        "title": "Show Caller Tree (Markdown)",
+        "category": "ImpactFlow"
+      },
+      {
+        "command": "impactflow.showCallerTreeVisual",
+        "title": "Show Caller Tree (Visual)",
         "category": "ImpactFlow"
       }
     ],
@@ -343,7 +395,8 @@
     "watch": "node esbuild.config.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build:grammars && vitest run --passWithNoTests",
-    "test:integration": "vscode-test",
+    "build:integration": "tsc -p test/integration/tsconfig.json",
+    "test:integration": "pnpm run build && pnpm run build:integration && vscode-test",
     "bench": "pnpm run build:grammars && node scripts/bench.mjs",
     "package": "pnpm run build && vsce package --no-dependencies",
     "clean": "rm -rf dist out"
@@ -351,6 +404,7 @@
   "devDependencies": {
     "@tree-sitter-grammars/tree-sitter-kotlin": "^1.1.0",
     "@tree-sitter-grammars/tree-sitter-lua": "^0.4.1",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.95.0",
     "@vscode/test-cli": "^0.0.10",

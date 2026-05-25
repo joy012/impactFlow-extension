@@ -26,6 +26,30 @@ export type ProgressListener = (progress: ProgressPayload) => void;
 
 const MAX_FILE_SNAPSHOTS = 200;
 const PERF_SAMPLE_CAP = 50;
+// Tuned to keep multi-file passes snappy without flooding the LSP reference provider.
+const ANALYSIS_CONCURRENCY = 4;
+
+const runWithConcurrency = async <T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> => {
+  if (items.length === 0) return;
+  const queue = items.slice();
+  const runners: Promise<void>[] = [];
+  for (let i = 0; i < Math.min(limit, queue.length); i++) {
+    runners.push(
+      (async () => {
+        while (queue.length > 0) {
+          const next = queue.shift();
+          if (next === undefined) return;
+          await worker(next);
+        }
+      })(),
+    );
+  }
+  await Promise.all(runners);
+};
 
 export interface EngineRouter {
   hotspotFor(filePath: string): HotspotEngine | undefined;
@@ -74,14 +98,17 @@ export class Pipeline {
   }
 
   // G3 — accepts a cancellation token so commands can interrupt long passes.
+  // Files are analyzed in batches with a small concurrency cap so big change sets
+  // don't serialize on LSP reference queries, but we still respect VS Code's RPC budget.
   async analyzeOpenDocuments(token?: vscode.CancellationToken): Promise<void> {
     try {
-      for (const doc of vscode.workspace.textDocuments) {
-        if (token?.isCancellationRequested) break;
-        if (doc.uri.scheme !== 'file') continue;
-        if (!languageFor(doc.uri.fsPath)) continue;
-        await this.analyzeOne(doc.uri.fsPath);
-      }
+      const queue = vscode.workspace.textDocuments
+        .filter((d) => d.uri.scheme === 'file' && languageFor(d.uri.fsPath))
+        .map((d) => d.uri.fsPath);
+      await runWithConcurrency(queue, ANALYSIS_CONCURRENCY, async (filePath) => {
+        if (token?.isCancellationRequested) return;
+        await this.analyzeOne(filePath);
+      });
       this.emit();
     } finally {
       this.emitProgress({ active: false, phase: 'idle' });

@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AiResponseCache, buildCacheKey } from '../src/ai/cache.js';
-import { explainChangePrompt, suggestTestsPrompt } from '../src/ai/prompts.js';
+import {
+  explainChangePrompt,
+  suggestTestsPrompt,
+  triageSnapshotPrompt,
+  updateDocsPrompt,
+  whyRiskPrompt,
+} from '../src/ai/prompts.js';
 import { RateLimiter } from '../src/ai/rate-limiter.js';
-import type { FnSummary } from '../src/shared/messages.js';
+import type { AnalysisFileSnapshot, FnSummary } from '../src/shared/messages.js';
 
 // Inlined to avoid pulling provider.ts (and its `vscode` import) into the test bundle.
 const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
@@ -104,10 +110,45 @@ describe('prompt builders', () => {
     expect(userPrompt).toContain('concrete test cases');
   });
 
-  it('trims function text to 3 000 chars to respect token budget', () => {
+  it('trims function text to the per-fn cap (1500 chars) to respect token budget', () => {
     const giant = 'x'.repeat(10_000);
     const { userPrompt } = explainChangePrompt(fn, '/p/f.ts', giant);
-    expect(userPrompt).toContain('x'.repeat(3000));
-    expect(userPrompt).not.toContain('x'.repeat(3001));
+    expect(userPrompt).toContain('x'.repeat(1500));
+    expect(userPrompt).not.toContain('x'.repeat(1501));
+  });
+
+  it('updateDocsPrompt asks for doc comment only (no body, no prose)', () => {
+    const { systemPrompt, userPrompt } = updateDocsPrompt(fn, '/p/f.ts', 'function greet() {}');
+    expect(systemPrompt).toContain('Do not output the function body');
+    expect(userPrompt).toContain('greet');
+    expect(userPrompt).toContain('signature');
+    expect(userPrompt).toContain('doc comment only');
+  });
+
+  it('whyRiskPrompt sends no function source — just the classified risk inputs', () => {
+    const { userPrompt } = whyRiskPrompt(fn);
+    expect(userPrompt).toContain('greet');
+    expect(userPrompt).toContain('Risk score');
+    expect(userPrompt).toContain('signature');
+    // No source.
+    expect(userPrompt).not.toContain('```');
+  });
+
+  it('triageSnapshotPrompt summarises modified fns without source', () => {
+    const snapshot: AnalysisFileSnapshot[] = [
+      {
+        path: '/p/a.ts',
+        added: [],
+        removed: [],
+        modified: [fn, { ...fn, id: '/g', name: 'goodbye', topSeverity: 'low' }],
+      },
+    ];
+    const { userPrompt } = triageSnapshotPrompt(snapshot);
+    expect(userPrompt).toContain('greet');
+    expect(userPrompt).toContain('goodbye');
+    expect(userPrompt).toContain('2 modified functions');
+    expect(userPrompt).toContain('Review first');
+    // No source code in the prompt — purely classified summaries.
+    expect(userPrompt).not.toContain('```');
   });
 });

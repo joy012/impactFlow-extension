@@ -50,10 +50,44 @@ export const registerCommands = (deps: CommandDeps) => {
     deps.ai.run('review', () => pickHighRiskFunction(deps.pipeline)),
   );
   reg('impactflow.ai.clearCache', () => deps.ai.clearCache());
+  reg('impactflow.ai.updateDocs', () =>
+    deps.ai.run('updateDocs', () => pickFunction(deps.pipeline)),
+  );
+  reg('impactflow.ai.whyRisk', () => deps.ai.run('whyRisk', () => pickFunction(deps.pipeline)));
+  reg('impactflow.ai.triage', () =>
+    deps.ai.runTriage(() => {
+      const items = deps.pipeline.currentModifiedFunctions();
+      // Re-shape from flat list back into the file-grouped snapshot the prompt expects.
+      const byFile = new Map<string, ReturnType<typeof deps.pipeline.currentModifiedFunctions>>();
+      for (const it of items) {
+        const arr = byFile.get(it.filePath) ?? [];
+        arr.push(it);
+        byFile.set(it.filePath, arr);
+      }
+      return Array.from(byFile.entries()).map(([path, modList]) => ({
+        path,
+        added: [],
+        modified: modList.map((m) => m.fn),
+        removed: [],
+      }));
+    }),
+  );
 
   reg('impactflow.jumpToFn', jumpToFnHandler(deps.pipeline));
   reg('impactflow.cycleSeverity', cycleSeverityHandler());
   reg('impactflow.showCallerTree', showCallerTreeHandler(deps.pipeline));
+  reg('impactflow.showCallerTreeVisual', showCallerTreeVisualHandler(deps));
+};
+
+const showCallerTreeVisualHandler = (deps: CommandDeps) => async () => {
+  const entry = await pickFunction(deps.pipeline);
+  if (!entry) return;
+  const { showCallerTreePanel } = await import('./impact/tree-panel.js');
+  await showCallerTreePanel(deps.context, {
+    filePath: entry.filePath,
+    fnName: entry.fn.name,
+    startLine: entry.fn.line,
+  });
 };
 
 const showCallerTreeHandler = (pipeline: Pipeline) => async () => {
