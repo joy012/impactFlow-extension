@@ -5,8 +5,35 @@ import { diffBehavior } from './behavior-diff/index.js';
 import { findReferences } from './impact/references.js';
 import { logger } from './logger.js';
 import { buildFunctionTable, languageFor } from './parsers/router.js';
+import type { GrammarName } from './parsers/tree-sitter/grammar-cache.js';
+import { prepareGrammars } from './parsers/tree-sitter/grammar-cache.js';
+import { ensureParserReady } from './parsers/tree-sitter/init.js';
 import { diffFunctionTables, emptyTable } from './parsers/typescript/diff-functions.js';
 import { computeRisk } from './risk/formula.js';
+
+// Router language → grammar-cache key. `dart`/`swift`/`r`/`gdscript` are vendored;
+// the rest come from upstream packages. JS/TS share the typescript grammar.
+const GRAMMAR_FOR_LANG: Partial<Record<string, GrammarName>> = {
+  typescript: 'typescript',
+  javascript: 'javascript',
+  python: 'python',
+  go: 'go',
+  java: 'java',
+  kotlin: 'kotlin',
+  rust: 'rust',
+  csharp: 'csharp',
+  php: 'php',
+  swift: 'swift',
+  lua: 'lua',
+  elixir: 'elixir',
+  objc: 'objc',
+  scala: 'scala',
+  fsharp: 'fsharp',
+  r: 'r',
+  gdscript: 'gdscript',
+  powershell: 'powershell',
+  dart: 'dart',
+};
 
 type Severity = 'safe' | 'low' | 'medium' | 'high';
 
@@ -111,6 +138,20 @@ const compareRefs = async (
     .split('\n')
     .map((s) => s.trim())
     .filter((p) => p && languageFor(p) !== null);
+
+  // Branch compare can fire before activation's preloadGrammars settles (or after a
+  // silent grammar load failure). Without this, `new Parser()` throws "cannot
+  // construct a Parser before calling init()" mid-loop.
+  await ensureParserReady();
+  const grammarsNeeded = new Set<GrammarName>();
+  for (const rel of files) {
+    const lang = languageFor(rel);
+    const g = lang ? GRAMMAR_FOR_LANG[lang] : undefined;
+    if (g) grammarsNeeded.add(g);
+  }
+  if (grammarsNeeded.size > 0) {
+    await prepareGrammars([...grammarsNeeded]);
+  }
 
   if (files.length === 0) {
     return renderHeader(

@@ -53,13 +53,8 @@ export const extractFacts = (text: string, kind: FnKind): FnFacts => {
 
 const wrap = (text: string, kind: FnKind): string => {
   if (kind === 'method') return `class __W { ${text} }`;
-  if (text.trimStart().startsWith('(') && !text.includes('=>'))
-    return `const __w = ${text};`;
-  if (
-    kind === 'arrow' &&
-    !/^\s*(const|let|var|export)/.test(text) &&
-    text.includes('=>')
-  ) {
+  if (text.trimStart().startsWith('(') && !text.includes('=>')) return `const __w = ${text};`;
+  if (kind === 'arrow' && !/^\s*(const|let|var|export)/.test(text) && text.includes('=>')) {
     return `const __w = ${text};`;
   }
   return text;
@@ -116,11 +111,7 @@ const detectAsync = (fn: Node): boolean => {
 };
 
 const detectGenerator = (fn: Node): boolean => {
-  if (
-    fn.type === 'generator_function_declaration' ||
-    fn.type === 'generator_function'
-  )
-    return true;
+  if (fn.type === 'generator_function_declaration' || fn.type === 'generator_function') return true;
   for (let i = 0; i < fn.childCount; i++) {
     if (fn.child(i)?.text === '*') return true;
   }

@@ -70,15 +70,28 @@ export function SidePanel({
     [rawFiles, filterSev],
   );
 
+  // Counts feed the hero card. Computed before any early return so hook order is stable.
+  const counts = useMemo(() => {
+    const c = { high: 0, medium: 0, low: 0, safe: 0 };
+    for (const f of rawFiles) {
+      for (const m of f.modified) {
+        const s = m.topSeverity ?? 'safe';
+        c[s]++;
+      }
+    }
+    return c;
+  }, [rawFiles]);
+
   if (!init) {
-    return <EmptyState title="Loading…" body="Connecting to the extension host." />;
+    return <EmptyState title="Connecting…" body="Waking up the analysis engine." />;
   }
 
   if (!init.enabled) {
     return (
       <EmptyState
-        title="ImpactFlow is disabled"
-        body="Re-enable in settings → impactflow.enable."
+        icon="off"
+        title="ImpactFlow is off"
+        body="Re-enable in Settings → search “impactflow.enable”."
       />
     );
   }
@@ -86,9 +99,7 @@ export function SidePanel({
   if (rawFiles.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <section className="border-b border-border px-3 py-2 text-[11px] text-muted">
-          Since <code className="text-fg">HEAD</code> · no changes
-        </section>
+        <StatsHero counts={{ high: 0, medium: 0, low: 0, safe: 0 }} fileCount={0} />
         <div className="flex-1">
           <EmptyStateNudge init={init} onOpenFeedback={onOpenFeedback} />
         </div>
@@ -103,28 +114,9 @@ export function SidePanel({
       setSelectedId={setSelectedId}
       density={init.density}
     >
-      <section className="border-b border-border flex items-center justify-between gap-2 px-3 py-2 text-[11px] text-muted">
-        <span>
-          Since <code className="text-fg">HEAD</code> · {files.length} file
-          {files.length === 1 ? '' : 's'}
-        </span>
-        <div className="flex items-center gap-1">
-          {(['all', 'medium', 'high'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilterSev(s)}
-              className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
-                filterSev === s
-                  ? 'bg-accent text-accent-fg'
-                  : 'hover:bg-[var(--vscode-toolbar-hoverBackground)] text-muted'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </section>
+      <StatsHero counts={counts} fileCount={files.length}>
+        <FilterPills value={filterSev} onChange={setFilterSev} />
+      </StatsHero>
       <VirtualizedFileList
         files={files}
         collapsedPaths={collapsedPaths}
@@ -133,6 +125,89 @@ export function SidePanel({
         setSelectedId={setSelectedId}
       />
     </KeyboardNavRoot>
+  );
+}
+
+function StatsHero({
+  counts,
+  fileCount,
+  children,
+}: {
+  counts: { high: number; medium: number; low: number; safe: number };
+  fileCount: number;
+  children?: React.ReactNode;
+}) {
+  const empty = fileCount === 0;
+  return (
+    <section className="impactflow-hero border-b border-border px-3 py-2.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-muted flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em]">
+          <span className="impactflow-branch-glyph inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+          since HEAD
+        </span>
+        <span className="text-muted text-[10px] tabular-nums">
+          {empty ? 'no changes' : `${fileCount} file${fileCount === 1 ? '' : 's'}`}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <StatChip tone="danger" label="high" value={counts.high} />
+        <StatChip tone="warn" label="medium" value={counts.medium} />
+        <StatChip tone="ok" label="low" value={counts.low} />
+      </div>
+      {children && <div className="mt-2">{children}</div>}
+    </section>
+  );
+}
+
+function StatChip({
+  tone,
+  label,
+  value,
+}: {
+  tone: 'danger' | 'warn' | 'ok';
+  label: string;
+  value: number;
+}) {
+  const tint =
+    tone === 'danger'
+      ? 'impactflow-chip-danger'
+      : tone === 'warn'
+        ? 'impactflow-chip-warn'
+        : 'impactflow-chip-ok';
+  return (
+    <div className={`impactflow-stat-chip ${tint} rounded-md px-2 py-1.5`}>
+      <div className="impactflow-stat-value text-[15px] font-semibold leading-none tabular-nums">
+        {value}
+      </div>
+      <div className="text-muted mt-0.5 text-[9px] uppercase tracking-[0.08em]">{label}</div>
+    </div>
+  );
+}
+
+function FilterPills({
+  value,
+  onChange,
+}: {
+  value: FilterSeverity;
+  onChange: (v: FilterSeverity) => void;
+}) {
+  return (
+    <div className="impactflow-filter-pills flex items-center gap-px rounded-md p-px">
+      {(['all', 'medium', 'high'] as const).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          className={`flex-1 rounded-[5px] px-2 py-1 text-[10px] font-medium uppercase tracking-wider transition ${
+            value === s
+              ? 'bg-accent text-accent-fg'
+              : 'text-muted hover:bg-[var(--vscode-toolbar-hoverBackground)] hover:text-fg'
+          }`}
+        >
+          {s === 'all' ? 'All' : s === 'medium' ? '≥ Med' : 'High'}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -214,15 +289,15 @@ function KeyboardNavRoot({
 
 function EmptyStateNudge({
   init,
-  onOpenFeedback,
+  onOpenFeedback: _onOpenFeedback,
 }: {
   init: InitPayload;
   onOpenFeedback: () => void;
 }) {
-  // Surface a single concrete next action instead of generic prose.
   if (!init.isGitRepo) {
     return (
       <EmptyState
+        icon="spark"
         title="No git repo here"
         body="Run `git init` in this folder, then ImpactFlow can show what changed against HEAD."
       />
@@ -230,8 +305,9 @@ function EmptyStateNudge({
   }
   return (
     <EmptyState
-      title="No behavior changes since HEAD"
-      body="Edit a function to see live impact analysis. Or compare any two branches to see the full behavior diff between them."
+      icon="ripple"
+      title="Nothing to flag yet"
+      body="Edit a function to see live impact, or compare any two branches for a full behavior diff."
       action={{
         label: 'Compare branches',
         onClick: () =>

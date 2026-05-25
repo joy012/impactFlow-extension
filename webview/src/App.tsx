@@ -21,7 +21,6 @@ export function App() {
   const [feedbackPrefill, setFeedbackPrefill] = useState<FeedbackType>('general');
   const [feedbackResult, setFeedbackResult] = useState<FeedbackResult | undefined>();
   const [progress, setProgress] = useState<ProgressPayload | undefined>();
-  // Debounce the "active=false" transition so short bursts don't flash.
   const inactiveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -49,7 +48,6 @@ export function App() {
             }
             setProgress(msg.payload);
           } else {
-            // Hold the bar for 250ms so user actually sees it on quick passes.
             inactiveTimer.current = window.setTimeout(() => {
               setProgress({ active: false, phase: 'idle' });
               inactiveTimer.current = undefined;
@@ -74,25 +72,23 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col bg-bg text-fg">
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold tracking-tight">ImpactFlow</span>
-          {init && <span className="text-muted text-[11px]">v{init.extensionVersion}</span>}
+      <header className="impactflow-header relative flex flex-col gap-2 px-3 pt-3 pb-2">
+        <div className="flex items-center justify-between">
+          <BrandMark version={init?.extensionVersion} />
+          {snapshot && (
+            <span className="text-muted shrink-0 text-[10px] tabular-nums">
+              {snapshot.durationMs.toFixed(0)}ms
+            </span>
+          )}
         </div>
-        <nav className="flex items-center gap-1">
-          <TabButton active={tab === 'panel'} onClick={() => setTab('panel')}>
-            Impact {totalChanges > 0 && <span className="text-muted">({totalChanges})</span>}
-          </TabButton>
-          <TabButton
-            active={tab === 'feedback'}
-            onClick={() => {
-              setTab('feedback');
-              setFeedbackResult(undefined);
-            }}
-          >
-            Feedback
-          </TabButton>
-        </nav>
+        <SegmentedTabs
+          value={tab}
+          onChange={(v) => {
+            setTab(v);
+            if (v === 'feedback') setFeedbackResult(undefined);
+          }}
+          totalChanges={totalChanges}
+        />
       </header>
 
       <ProgressBar progress={progress} />
@@ -109,16 +105,74 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-border px-3 py-1.5 text-[11px] text-muted">
-        {snapshot
-          ? `Local analysis · ${fileCount} file${fileCount === 1 ? '' : 's'} · ${snapshot.durationMs.toFixed(0)}ms`
-          : 'Local analysis · No code leaves your machine'}
+      <footer className="border-t border-border flex items-center justify-between gap-2 px-3 py-1.5 text-[10px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="impactflow-dot bg-ok inline-block h-1.5 w-1.5 rounded-full" />
+          <span>Local · no code leaves your machine</span>
+        </span>
+        {snapshot && (
+          <span className="tabular-nums">
+            {fileCount} file{fileCount === 1 ? '' : 's'}
+          </span>
+        )}
       </footer>
     </div>
   );
 }
 
-function TabButton({
+function BrandMark({ version }: { version: string | undefined }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="impactflow-logo relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+        <span className="impactflow-logo-ring absolute inset-0 rounded-full" />
+        <span className="impactflow-logo-core h-2 w-2 rounded-full" />
+      </span>
+      <span className="truncate text-[13px] font-semibold tracking-tight">ImpactFlow</span>
+      {version && (
+        <span className="impactflow-version-pill rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
+          v{version}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SegmentedTabs({
+  value,
+  onChange,
+  totalChanges,
+}: {
+  value: Tab;
+  onChange: (v: Tab) => void;
+  totalChanges: number;
+}) {
+  return (
+    <div
+      role="tablist"
+      className="impactflow-tabs relative grid grid-cols-2 gap-px rounded-md p-px"
+    >
+      <SegmentButton active={value === 'panel'} onClick={() => onChange('panel')}>
+        <span>Impact</span>
+        {totalChanges > 0 && (
+          <span
+            className={`ml-1 rounded-full px-1.5 py-px text-[9px] font-semibold tabular-nums ${
+              value === 'panel'
+                ? 'bg-[var(--vscode-button-foreground)]/15 text-[var(--vscode-button-foreground)]'
+                : 'bg-[var(--vscode-badge-background,rgba(127,127,127,0.16))] text-fg'
+            }`}
+          >
+            {totalChanges > 99 ? '99+' : totalChanges}
+          </span>
+        )}
+      </SegmentButton>
+      <SegmentButton active={value === 'feedback'} onClick={() => onChange('feedback')}>
+        Feedback
+      </SegmentButton>
+    </div>
+  );
+}
+
+function SegmentButton({
   active,
   children,
   onClick,
@@ -130,10 +184,12 @@ function TabButton({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`rounded px-2 py-1 text-xs transition ${
+      className={`relative flex items-center justify-center gap-1 rounded-[5px] px-2.5 py-1.5 text-[11px] font-medium transition ${
         active
-          ? 'bg-accent text-accent-fg'
+          ? 'bg-accent text-accent-fg shadow-[0_1px_2px_rgba(0,0,0,0.18)]'
           : 'text-muted hover:bg-[var(--vscode-toolbar-hoverBackground)] hover:text-fg'
       }`}
     >

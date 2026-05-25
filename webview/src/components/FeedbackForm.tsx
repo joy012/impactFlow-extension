@@ -4,8 +4,8 @@ import { getVsCode } from '../vscode.js';
 
 const TYPE_OPTIONS: Array<{ value: FeedbackType; label: string }> = [
   { value: 'bug', label: 'Bug' },
-  { value: 'feature', label: 'Feature request' },
-  { value: 'general', label: 'General feedback' },
+  { value: 'feature', label: 'Feature' },
+  { value: 'general', label: 'General' },
 ];
 
 export function FeedbackForm({
@@ -79,25 +79,33 @@ export function FeedbackForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 px-3 py-3">
-      <p className="text-muted text-[11px] leading-relaxed">
-        Submitting will send this content over HTTPS to the maintainer. No source code is included
-        unless you tick "attach logs" below.
-      </p>
+      <div className="impactflow-feedback-banner rounded-md px-2.5 py-2 text-[11px] leading-relaxed">
+        <span className="text-fg font-medium">Sent over HTTPS</span>
+        <span className="text-muted">
+          {' '}
+          — no source code unless you tick <em>attach logs</em>.
+        </span>
+      </div>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-muted text-[11px]">Type</span>
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as FeedbackType)}
-          className="text-xs"
-        >
+      <div className="flex flex-col gap-1">
+        <span className="text-muted text-[10px] uppercase tracking-[0.08em]">Type</span>
+        <div className="impactflow-filter-pills flex items-center gap-px rounded-md p-px">
           {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setType(o.value)}
+              className={`flex-1 rounded-[5px] px-2 py-1 text-[11px] font-medium transition ${
+                type === o.value
+                  ? 'bg-accent text-accent-fg'
+                  : 'text-muted hover:bg-[var(--vscode-toolbar-hoverBackground)] hover:text-fg'
+              }`}
+            >
               {o.label}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
 
       <label className="flex flex-col gap-1">
         <span className="text-muted text-[11px]">Title</span>
