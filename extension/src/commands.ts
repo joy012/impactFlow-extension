@@ -30,7 +30,7 @@ export const registerCommands = (deps: CommandDeps) => {
   reg('impactflow.requestFeature', () => deps.provider.showFeedback('feature'));
   reg('impactflow.showPerf', showPerfHandler(deps));
   reg('impactflow.resetBaseline', resetBaselineHandler(deps.pipeline));
-  reg('impactflow.findDeadCode', findDeadCodeHandler());
+  reg('impactflow.findDeadCode', findDeadCodeHandler(deps));
   reg('impactflow.cleanupDeadCode', cleanupDeadCodeHandler());
   reg('impactflow.compareBranches', compareBranchesHandler());
   reg('impactflow.refreshCoverage', refreshCoverageHandler(deps.pipeline));
@@ -263,12 +263,11 @@ const summarizeStagedHandler = () => async () => {
 };
 
 const showPerfHandler =
-  ({ pipeline }: CommandDeps) =>
+  ({ pipeline, context }: CommandDeps) =>
   async () => {
-    const { renderDiagnostics } = await import('./diagnostics.js');
-    const md = renderDiagnostics(pipeline);
-    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: md });
-    await vscode.window.showTextDocument(doc, { preview: true });
+    const { collectDiagnostics } = await import('./diagnostics.js');
+    const { showReportPanel } = await import('./report-panel.js');
+    showReportPanel(context, { kind: 'perf', snap: collectDiagnostics(pipeline) });
   };
 
 const resetBaselineHandler = (pipeline: Pipeline) => async () => {
@@ -283,21 +282,36 @@ const resetBaselineHandler = (pipeline: Pipeline) => async () => {
   }
 };
 
-const findDeadCodeHandler = () => async () => {
-  if ((vscode.workspace.workspaceFolders ?? []).length === 0) {
+const findDeadCodeHandler = (deps: CommandDeps) => async () => {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
     vscode.window.showWarningMessage('ImpactFlow: open a folder before scanning for dead code.');
     return;
   }
   const { scanDeadCode } = await import('./dead-code/scan.js');
+  const { showReportPanel } = await import('./report-panel.js');
+  const root = folder.uri.fsPath;
+
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: 'ImpactFlow: scanning for dead code…',
       cancellable: true,
     },
-    async (_p, token) => {
+    async (p, token) => {
       try {
-        const report = await scanDeadCode(token);
+        // pauseFor stops the document watcher from re-triggering pipeline analysis
+        // for every file the symbol provider opens. This was the source of the
+        // side-panel progress-bar flicker during the scan.
+        const report = await deps.watcher.pauseFor(() =>
+          scanDeadCode(token, ({ filePath, index, total }) => {
+            // Single notification, text updates in place — no UI shift.
+            p.report({
+              message: `${index}/${total} · ${shortBase(filePath)}`,
+              increment: 100 / total,
+            });
+          }),
+        );
         if (token.isCancellationRequested) return;
         if (report.findings.length === 0 && report.scanned === 0) {
           vscode.window.showWarningMessage(
@@ -311,11 +325,7 @@ const findDeadCodeHandler = () => async () => {
           );
           return;
         }
-        const doc = await vscode.workspace.openTextDocument({
-          language: 'markdown',
-          content: renderDeadCodeReport(report),
-        });
-        await vscode.window.showTextDocument(doc, { preview: true });
+        showReportPanel(deps.context, { kind: 'dead-code', report, workspaceRoot: root });
       } catch (err) {
         logger.error('findDeadCode failed', err);
         vscode.window.showErrorMessage(
@@ -324,6 +334,11 @@ const findDeadCodeHandler = () => async () => {
       }
     },
   );
+};
+
+const shortBase = (p: string): string => {
+  const parts = p.split(/[\\/]/);
+  return parts.slice(-2).join('/');
 };
 
 const cleanupDeadCodeHandler = () => async () => {
@@ -408,42 +423,6 @@ const resetDismissalsHandler = (feedback: FeedbackStore, pipeline: Pipeline) => 
   await feedback.clearDismissals();
   await pipeline.reset();
   vscode.window.showInformationMessage('ImpactFlow: dismissals cleared.');
-};
-
-interface DeadCodeReportSummary {
-  generatedAt: number;
-  durationMs: number;
-  scanned: number;
-  findings: Array<{ filePath: string; symbol: string; line: number; kind: string; reason: string }>;
-  skipped: Array<{ filePath: string; reason: string }>;
-}
-
-const renderDeadCodeReport = (report: DeadCodeReportSummary): string => {
-  const lines: string[] = [
-    '# ImpactFlow — Dead-Code Report',
-    '',
-    `Scanned **${report.scanned}** files in ${report.durationMs} ms · Found **${report.findings.length}** candidates`,
-    '',
-    '> Read-only report. Removal requires preview + confirm (`ImpactFlow: Cleanup Dead Code`).',
-    '',
-  ];
-  if (report.findings.length === 0) {
-    lines.push('_No dead exports detected._');
-  } else {
-    lines.push('## Candidates');
-    for (const f of report.findings) {
-      lines.push(
-        `- **${f.symbol}** (${f.kind}) — \`${shortenPath(f.filePath)}:${f.line}\` — ${f.reason}`,
-      );
-    }
-  }
-  if (report.skipped.length > 0) {
-    lines.push('', '## Skipped');
-    for (const s of report.skipped) {
-      lines.push(`- \`${shortenPath(s.filePath)}\` — ${s.reason}`);
-    }
-  }
-  return lines.join('\n');
 };
 
 const shortenPath = (abs: string): string => {

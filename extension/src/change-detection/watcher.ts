@@ -14,6 +14,8 @@ export class DocumentWatcher implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
   private timers = new Map<string, NodeJS.Timeout>();
   private inflight = new Set<string>();
+  // Counter (not boolean) so nested pauseFor() calls compose safely.
+  private paused = 0;
 
   constructor(
     private readonly handler: ChangeHandler,
@@ -23,15 +25,18 @@ export class DocumentWatcher implements vscode.Disposable {
   start(): void {
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => {
+        if (this.paused > 0) return;
         if (e.document.uri.scheme !== 'file') return;
         if (!this.isWatched(e.document)) return;
         this.schedule(e.document.uri.fsPath, 'edit');
       }),
       vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (this.paused > 0) return;
         if (doc.uri.scheme !== 'file' || !this.isWatched(doc)) return;
         this.schedule(doc.uri.fsPath, 'save', 0);
       }),
       vscode.workspace.onDidOpenTextDocument((doc) => {
+        if (this.paused > 0) return;
         if (doc.uri.scheme !== 'file' || !this.isWatched(doc)) return;
         this.schedule(doc.uri.fsPath, 'open', 0);
       }),
@@ -41,6 +46,19 @@ export class DocumentWatcher implements vscode.Disposable {
 
   trigger(filePath: string): void {
     this.schedule(filePath, 'manual', 0);
+  }
+
+  // Bulk operations (dead-code scan, deep-bench) open documents via VS Code
+  // RPCs which fire onDidOpenTextDocument and would otherwise flood the
+  // pipeline + flicker the side-panel progress bar. Wrap the bulk op so the
+  // watcher ignores those open events for its duration.
+  async pauseFor<T>(fn: () => Promise<T>): Promise<T> {
+    this.paused++;
+    try {
+      return await fn();
+    } finally {
+      this.paused--;
+    }
   }
 
   private schedule(

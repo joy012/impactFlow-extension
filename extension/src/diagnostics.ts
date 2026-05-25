@@ -58,6 +58,24 @@ const formatUptime = (ms: number): string => {
   return h > 0 ? `${h}h ${m}m ${sec}s` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 };
 
+export interface DiagnosticsSnapshot {
+  generatedAt: number;
+  uptime: string;
+  mem: ProcessMetrics;
+  cpu: CpuMetrics;
+  perf: ReturnType<Pipeline['perfStats']>;
+  folderCount: number;
+}
+
+export const collectDiagnostics = (pipeline: Pipeline): DiagnosticsSnapshot => ({
+  generatedAt: Date.now(),
+  uptime: activatedAt ? formatUptime(Date.now() - activatedAt) : 'unknown',
+  mem: collectProcess(),
+  cpu: collectCpu(),
+  perf: pipeline.perfStats(),
+  folderCount: (vscode.workspace.workspaceFolders ?? []).length,
+});
+
 export const renderDiagnostics = (pipeline: Pipeline): string => {
   const mem = collectProcess();
   const cpu = collectCpu();

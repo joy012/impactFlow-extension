@@ -139,7 +139,7 @@ function StatsHero({
 }) {
   const empty = fileCount === 0;
   return (
-    <section className="impactflow-hero border-b border-border px-3 py-2.5">
+    <section className="impactflow-hero border-b border-border px-2.5 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-muted flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em]">
           <span className="impactflow-branch-glyph inline-block h-1.5 w-1.5 rounded-full bg-accent" />

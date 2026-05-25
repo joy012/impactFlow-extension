@@ -39,7 +39,12 @@ const INCLUDE_GLOB = `{${[
 ].join(',')}}`;
 const EXCLUDE_GLOB = '{**/node_modules/**,**/dist/**,**/out/**,**/build/**,**/.git/**}';
 
-export const scanDeadCode = async (token?: vscode.CancellationToken): Promise<DeadCodeReport> => {
+export type ScanProgress = (info: { filePath: string; index: number; total: number }) => void;
+
+export const scanDeadCode = async (
+  token?: vscode.CancellationToken,
+  onProgress?: ScanProgress,
+): Promise<DeadCodeReport> => {
   const t0 = Date.now();
   const findings: DeadCodeFinding[] = [];
   const skipped: DeadCodeReport['skipped'] = [];
@@ -53,12 +58,14 @@ export const scanDeadCode = async (token?: vscode.CancellationToken): Promise<De
   let scanned = 0;
   const deadline = Date.now() + TIMEOUT_MS;
 
-  for (const uri of sourceFiles) {
+  for (let i = 0; i < sourceFiles.length; i++) {
+    const uri = sourceFiles[i]!;
     if (token?.isCancellationRequested) break;
     if (Date.now() > deadline) {
       skipped.push({ filePath: '<scan>', reason: 'timeout — workspace too large for one pass' });
       break;
     }
+    onProgress?.({ filePath: uri.fsPath, index: i + 1, total: sourceFiles.length });
     if (!languageFor(uri.fsPath)) {
       skipped.push({ filePath: uri.fsPath, reason: 'unsupported language' });
       continue;

@@ -36,6 +36,13 @@ body {
   margin: 0;
 }
 
+/* Sidebar shell — slightly darker than the editor background so the panel
+   reads as a distinct surface. Falls back to sidebar-background, then a
+   manual 4% darken via color-mix if that isn't set. */
+.impactflow-shell {
+  background: var(--vscode-sideBar-background, color-mix(in srgb, var(--color-bg) 94%, #000));
+}
+
 input,
 textarea,
 select {

@@ -71,8 +71,8 @@ export function App() {
     ) ?? 0;
 
   return (
-    <div className="flex h-full flex-col bg-bg text-fg">
-      <header className="impactflow-header relative flex flex-col gap-2 px-3 pt-3 pb-2">
+    <div className="impactflow-shell flex h-full flex-col text-fg">
+      <header className="impactflow-header relative flex flex-col gap-2 px-2.5 pt-2.5 pb-2">
         <div className="flex items-center justify-between">
           <BrandMark version={init?.extensionVersion} />
           {snapshot && (
@@ -105,7 +105,7 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-border flex items-center justify-between gap-2 px-3 py-1.5 text-[10px] text-muted">
+      <footer className="border-t border-border flex items-center justify-between gap-2 px-2.5 py-1.5 text-[10px] text-muted">
         <span className="flex items-center gap-1.5">
           <span className="impactflow-dot bg-ok inline-block h-1.5 w-1.5 rounded-full" />
           <span>Local · no code leaves your machine</span>
