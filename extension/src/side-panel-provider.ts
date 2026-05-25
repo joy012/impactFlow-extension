@@ -77,7 +77,19 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   }
 
   reveal(): void {
-    this.view?.show?.(true);
+    if (this.view) {
+      this.view.show?.(true);
+      return;
+    }
+    // First-install case: the user hasn't clicked the activity-bar icon yet, so
+    // resolveWebviewView hasn't run and `this.view` is undefined. Asking the
+    // workbench to open the container triggers resolveWebviewView, after which
+    // `this.view` is populated for subsequent reveal() calls.
+    vscode.commands
+      .executeCommand('workbench.view.extension.impactflow')
+      .then(undefined, (err) =>
+        logger.warn(`could not open ImpactFlow view container: ${(err as Error).message}`),
+      );
   }
 
   showFeedback(prefillType: FeedbackPayload['type'] = 'general'): void {
@@ -183,9 +195,11 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       return this.fallbackHtml();
     }
 
-    html = html.replace(/(src|href)="\/?(.+?)"/g, (_match, attr, path) => {
+    html = html.replace(/(src|href)="(\.?\/?)?(.+?)"/g, (_match, attr, _prefix, path) => {
       if (/^(https?:|data:|vscode-webview:|#)/.test(path)) return `${attr}="${path}"`;
-      const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(root, path));
+      // Strip any residual `./` or leading `/` so joinPath builds a clean URI.
+      const clean = path.replace(/^\.?\/+/, '');
+      const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(root, clean));
       return `${attr}="${assetUri}"`;
     });
 
@@ -201,7 +215,23 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     html = html
       .replace('<head>', `<head>\n  <meta http-equiv="Content-Security-Policy" content="${csp}">`)
-      .replace(/<script /g, `<script nonce="${nonce}" `);
+      // Vite emits `<script type="module" crossorigin src="...">` which VS Code /
+      // Cursor webviews silently refuse under the strict CSP nonce flow. The bundle
+      // itself is a self-contained IIFE so it runs fine as a classic script — strip
+      // those attrs and inject the nonce.
+      .replace(/<script\b[^>]*>/g, (tag) => {
+        const src = /\bsrc="([^"]+)"/.exec(tag)?.[1];
+        // For external scripts: rebuild as a classic script with nonce + src + defer.
+        // `defer` makes it wait for DOM parsing — without it, the head-positioned
+        // script runs before `<div id="root">` exists and React boot fails with
+        // "#root not found". Vite's stripped `type="module"` had this for free.
+        // For inline scripts: just inject the nonce so we don't lose the body.
+        return src
+          ? `<script defer nonce="${nonce}" src="${src}">`
+          : tag.replace('<script', `<script nonce="${nonce}"`);
+      })
+      // Same idea for stylesheets: drop `crossorigin` which doesn't apply to webview URIs.
+      .replace(/<link\b([^>]*)\s+crossorigin\b([^>]*)>/g, '<link$1$2>');
 
     return html;
   }

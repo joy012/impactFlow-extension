@@ -51,19 +51,9 @@ export function SidePanel({
     });
   }, []);
 
-  if (!init) {
-    return <EmptyState title="Loading…" body="Connecting to the extension host." />;
-  }
-
-  if (!init.enabled) {
-    return (
-      <EmptyState
-        title="ImpactFlow is disabled"
-        body="Re-enable in settings → impactflow.enable."
-      />
-    );
-  }
-
+  // All hooks MUST run on every render in the same order — React #310 fires if
+  // any hook is called conditionally. Compute derived state before any early
+  // return path.
   const rawFiles = snapshot?.files ?? [];
   const files = useMemo(
     () =>
@@ -79,6 +69,19 @@ export function SidePanel({
             .filter((f) => f.modified.length + f.added.length + f.removed.length > 0),
     [rawFiles, filterSev],
   );
+
+  if (!init) {
+    return <EmptyState title="Loading…" body="Connecting to the extension host." />;
+  }
+
+  if (!init.enabled) {
+    return (
+      <EmptyState
+        title="ImpactFlow is disabled"
+        body="Re-enable in settings → impactflow.enable."
+      />
+    );
+  }
 
   if (rawFiles.length === 0) {
     return (
@@ -254,8 +257,19 @@ function VirtualizedFileList({
   selectedId: string | undefined;
   setSelectedId: (id: string | undefined) => void;
 }) {
-  // Small lists render directly — virtualization only kicks in past the threshold so
-  // small workspaces don't pay the ResizeObserver overhead.
+  // Hooks must run unconditionally (React #310). The small-list branch returns
+  // below this block; until then both useRef and useVirtualizer always run.
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: files.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => (collapsedPaths.has(files[i]!.path) ? 32 : 140),
+    overscan: 6,
+    getItemKey: (i) => files[i]!.path,
+  });
+
+  // Small lists render directly — react-virtual's ResizeObserver isn't worth
+  // setting up below the threshold. The hooks above are still cheap when unused.
   if (files.length < VIRTUALIZE_THRESHOLD) {
     return (
       <div className="flex-1 overflow-auto">
@@ -272,17 +286,6 @@ function VirtualizedFileList({
       </div>
     );
   }
-
-  const parentRef = useRef<HTMLDivElement | null>(null);
-  // Heuristic row height: collapsed = ~32 px (header only); expanded files vary widely.
-  // We let react-virtual measure actual heights post-mount via ResizeObserver.
-  const virtualizer = useVirtualizer({
-    count: files.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: (i) => (collapsedPaths.has(files[i]!.path) ? 32 : 140),
-    overscan: 6,
-    getItemKey: (i) => files[i]!.path,
-  });
 
   return (
     <div ref={parentRef} className="flex-1 overflow-auto">
